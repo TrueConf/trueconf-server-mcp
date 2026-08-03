@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ t.error.title }} — TrueConf Server MCP</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/static/app.css">
+  <link rel="icon" href="/favicon.ico" type="image/png">
+  <style>
+    /* ---------- Main content ---------- */
+    .main {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 96px;
+      padding: 56px 104px;
+    }
+
+    /* Error story (left column) */
+    .story {
+      width: 620px;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+    }
+    .story-head {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .eyebrow {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .eyebrow-bar {
+      width: 32px;
+      height: 2px;
+      background: #D64545;
+      flex-shrink: 0;
+    }
+    .eyebrow-text {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      line-height: 18px;
+      color: #66717D;
+    }
+    .hero-title {
+      font-size: 48px;
+      font-weight: 700;
+      letter-spacing: -0.035em;
+      line-height: 56px;
+      color: #1D232A;
+      margin: 0;
+    }
+    .hero-desc {
+      width: 570px;
+      font-size: 18px;
+      line-height: 28px;
+      color: #66717D;
+      margin: 0;
+    }
+
+    /* Server response callout */
+    .callout {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      padding: 18px;
+      border-radius: 0 10px 10px 0;
+      border-left: 3px solid #D64545;
+      background: #FCEFEF;
+    }
+    .callout-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      flex-shrink: 0;
+      border-radius: 7px;
+      background: #FFFFFF;
+    }
+    .callout-text {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .callout-heading {
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 18px;
+      color: #8E3030;
+    }
+    .callout-body {
+      font-size: 14px;
+      line-height: 21px;
+      color: #5A3333;
+    }
+
+    /* Retry card (right column) */
+    .retry-card {
+      width: 430px;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      padding: 36px;
+      border-radius: 16px;
+      border: 1px solid #D8DEE4;
+      background: #FFFFFF;
+      box-shadow: #1D232A14 0px 16px 36px;
+    }
+    .retry-head {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding-bottom: 12px;
+    }
+    .retry-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 48px;
+      height: 48px;
+      flex-shrink: 0;
+      border-radius: 12px;
+      background: #FCEFEF;
+    }
+    .retry-title {
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      line-height: 30px;
+      color: #1D232A;
+      margin: 0;
+    }
+    .retry-desc {
+      font-size: 15px;
+      line-height: 22px;
+      color: #66717D;
+      margin: 0;
+    }
+    .trust-note {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 15px;
+      border-radius: 10px;
+      border: 1px solid #E3E7EB;
+      background: #F7F9FA;
+    }
+    .trust-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+    }
+    .trust-text {
+      font-size: 13px;
+      line-height: 19px;
+      color: #4F5B66;
+      margin: 0;
+    }
+    .retry-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      width: 100%;
+      padding-block: 14px;
+      padding-inline: 18px;
+      border-radius: 8px;
+      border: none;
+      background: #F47B20;
+      color: #FFFFFF;
+      font-family: inherit;
+      font-size: 15px;
+      font-weight: 700;
+      line-height: 20px;
+      text-decoration: none;
+      cursor: pointer;
+      transition: background 0.15s ease, transform 0.15s ease;
+    }
+    .retry-btn:hover {
+      background: #E0711A;
+      transform: translateY(-1px);
+    }
+
+    /* ---------- Responsive ---------- */
+    @media (max-width: 960px) {
+      .main {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 32px;
+        padding: 32px 20px;
+      }
+      .story {
+        width: 100%;
+      }
+      .hero-title {
+        font-size: 32px;
+        line-height: 38px;
+      }
+      .hero-desc {
+        width: 100%;
+        font-size: 16px;
+        line-height: 24px;
+      }
+      .retry-card {
+        width: 100%;
+        padding: 24px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .hero-title {
+        font-size: 28px;
+        line-height: 34px;
+      }
+      .retry-card {
+        padding: 20px;
+        border-radius: 14px;
+      }
+      .retry-title {
+        font-size: 22px;
+        line-height: 28px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <img src="/logo.png" alt="TrueConf" class="brand-logo">
+      <div class="brand-text">
+        <span class="brand-name">{{ t.common.title }}</span>
+        <span class="brand-sub">{{ t.common.subtitle }}</span>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <div class="lang-switch" id="langSwitch">
+        <button class="lang-trigger" type="button" aria-haspopup="true" aria-expanded="false" aria-label="{{ t.common.lang_label }}">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="9" stroke="#4F5B66" stroke-width="1.8" />
+            <path d="M3 12h18M12 3c2.5 2.7 4 5.8 4 9s-1.5 6.3-4 9c-2.5-2.7-4-5.8-4-9s1.5-6.3 4-9z" stroke="#4F5B66" stroke-width="1.8" />
+          </svg>
+          <span class="lang-current">{{ lang_code }}</span>
+          <svg class="lang-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none">
+            <path d="M6 9l6 6 6-6" stroke="#4F5B66" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </button>
+        <div class="lang-menu" role="menu">
+          <a href="{{ lang_url_en }}" class="lang-option {{ lang_active_en }}" role="menuitem">{{ t.common.lang_en }}</a>
+          <a href="{{ lang_url_ru }}" class="lang-option {{ lang_active_ru }}" role="menuitem">{{ t.common.lang_ru }}</a>
+        </div>
+      </div>
+      <div class="status-badge" id="statusBadge"
+           data-server-url="{{ server_url }}"
+           data-online="{{ t.common.status_ok }}" data-offline="{{ t.common.status_off }}">
+        <span class="status-dot pending" id="statusDot"></span>
+        <span class="status-text" id="statusText">{{ t.common.status_checking }}</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="main">
+    <section class="story">
+      <div class="story-head">
+        <div class="eyebrow">
+          <span class="eyebrow-bar"></span>
+          <span class="eyebrow-text">{{ t.error.eyebrow }}</span>
+        </div>
+        <h1 class="hero-title">{{ t.error.hero_title }}</h1>
+        <p class="hero-desc">{{ t.error.hero_desc }}</p>
+      </div>
+
+      <div class="callout">
+        <div class="callout-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none">
+            <circle cx="12" cy="12" r="9" stroke="#D64545" stroke-width="2" />
+            <path d="M12 7v6M12 16h.01" stroke="#D64545" stroke-width="2" />
+          </svg>
+        </div>
+        <div class="callout-text">
+          <span class="callout-heading">{{ t.error.response_heading }}</span>
+          <span class="callout-body">{{ t.error.response_text }}</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="retry-card">
+      <div class="retry-head">
+        <div class="retry-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none">
+            <path d="M4 12a8 8 0 1 0 3-6.2L4 9" stroke="#D64545" stroke-width="1.8" />
+            <path d="M4 4v5h5" stroke="#D64545" stroke-width="1.8" />
+          </svg>
+        </div>
+        <h2 class="retry-title">{{ t.error.retry_card_title }}</h2>
+        <p class="retry-desc">{{ t.error.retry_card_desc }}</p>
+      </div>
+      <div class="trust-note">
+        <div class="trust-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none">
+            <path d="M12 3l7 3v5c0 4.6-2.9 8.5-7 10-4.1-1.5-7-5.4-7-10V6l7-3z" stroke="#66717D" stroke-width="1.8" />
+            <path d="M9 12l2 2 4-4" stroke="#66717D" stroke-width="1.8" />
+          </svg>
+        </div>
+        <p class="trust-text">{{ t.error.trust_note }}</p>
+      </div>
+      <a class="retry-btn" href="/">
+        {{ t.error.button }}
+        <svg width="17" height="17" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none">
+          <path d="M5 12h14M14 7l5 5-5 5" stroke="#FFFFFF" stroke-width="2" />
+        </svg>
+      </a>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span class="footer-text">{{ t.common.title }}</span>
+    <div class="footer-right">
+      <svg width="14" height="14" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none">
+        <circle cx="12" cy="12" r="9" stroke="#7B858F" stroke-width="1.8" />
+        <path d="M12 8v5M12 16h.01" stroke="#7B858F" stroke-width="1.8" />
+      </svg>
+      <span class="footer-text">{{ t.common.footer_security }}</span>
+    </div>
+  </footer>
+  <script src="/static/app.js"></script>
+</body>
+</html>

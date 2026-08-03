@@ -1,0 +1,27 @@
+ru:
+  title: Готово
+  heading: Ключ успешно получен
+  desc: Сохраните токен и добавьте его в настройки MCP-клиента. По соображениям безопасности он показывается только на этой странице.
+  field_user: Пользователь
+  field_id: ID
+  field_ttl: Срок
+  ttl:
+    one: "%{count} час"
+    few: "%{count} часа"
+    many: "%{count} часов"
+  token_title: Ваш API-токен
+  active: Активен
+  token_hint: Не передавайте ключ третьим лицам и не публикуйте его в репозитории.
+  new_token: Получить новый токен
+  new_token_side: Текущий ключ останется активным
+  configs_title: Добавьте сервер в клиент
+  configs_desc: Выберите приложение и скопируйте готовую конфигурацию.
+  kind_http: HTTP-конфигурация
+  kind_mcp_json: MCP JSON-конфигурация
+  kind_mcp_servers: MCP servers-конфигурация
+  kind_url_header: URL и заголовок авторизации
+  openwebui_url: URL
+  openwebui_header: Заголовок
+  toast_copied: Скопировано
+  toast_token: Токен скопирован
+  toast_config: Конфигурация скопирована

@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ t.success.title }} — TrueConf Server MCP</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@500;700&family=Roboto:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="/static/app.css">
+  <link rel="icon" href="/favicon.ico" type="image/png">
+  <style>
+    /* ---------- Main ---------- */
+    .main {
+      flex: 1;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 48px;
+      padding: 48px 104px;
+    }
+
+    /* Token column (left) */
+    .token-col { width: 608px; flex-shrink: 0; display: flex; flex-direction: column; gap: 20px; }
+    .success-head { display: flex; flex-direction: column; gap: 14px; }
+    .success-icon {
+      display: flex; align-items: center; justify-content: center;
+      width: 56px; height: 56px; flex-shrink: 0;
+      border-radius: 14px; background: #E9F7F1;
+    }
+    .success-title { font-size: 36px; font-weight: 700; letter-spacing: -0.03em; line-height: 44px; color: #1D232A; margin: 0; }
+    .success-desc { width: 540px; font-size: 16px; line-height: 24px; color: #66717D; margin: 0; }
+
+    /* Account details */
+    .account {
+      display: flex; align-items: center;
+      background: #FFFFFF; border: 1px solid #E3E7EB; border-radius: 10px;
+      padding: 16px 20px; width: 100%;
+    }
+    .account-field { display: flex; flex-direction: column; gap: 3px; }
+    .account-field-label { font-size: 12px; font-weight: 500; line-height: 16px; color: #7B858F; }
+    .account-field-value { font-size: 14px; font-weight: 700; line-height: 20px; color: #1D232A; }
+    .account-field.muted .account-field-value { font-weight: 500; }
+    .account-sep { width: 42%; }
+    .account-sep + .account-field { border-left: 1px solid #E3E7EB; padding-left: 20px; }
+    .account-field-id { width: 30%; }
+    .account-field-ttl { border-left: 1px solid #E3E7EB; padding-left: 20px; }
+
+    /* API token card */
+    .token-card {
+      background: #FFFFFF; border: 1px solid #D8DEE4; border-radius: 12px;
+      padding: 20px; display: flex; flex-direction: column; gap: 10px;
+    }
+    .token-card-head { display: flex; align-items: center; justify-content: space-between; }
+    .token-card-title { font-size: 14px; font-weight: 700; line-height: 20px; color: #1D232A; }
+    .active-badge {
+      display: flex; align-items: center; gap: 6px;
+      padding: 6px 10px; border-radius: 7px; background: #E9F7F1;
+    }
+    .active-dot { width: 7px; height: 7px; border-radius: 4px; background: #18A06A; flex-shrink: 0; }
+    .active-text { font-size: 12px; font-weight: 600; line-height: 16px; color: #13784F; }
+    .token-row {
+      display: flex; align-items: center; justify-content: space-between; gap: 16px;
+      background: #F7F9FA; border: 1px solid #E3E7EB; border-radius: 8px;
+      padding: 14px 16px;
+    }
+    .token-value {
+      font-family: 'Roboto Condensed', 'Roboto Mono', monospace;
+      font-size: 15px; font-weight: 500; line-height: 20px; color: #3E4852;
+      word-break: break-all;
+    }
+    .copy-btn {
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; width: 34px; height: 34px; border-radius: 7px;
+      background: #1098A5; border: none; cursor: pointer;
+      transition: background 0.15s ease;
+    }
+    .copy-btn:hover { background: #0E8390; }
+    .token-hint { font-size: 12px; line-height: 17px; color: #7B858F; margin: 0; }
+
+    /* Token actions */
+    .token-actions { display: flex; align-items: center; justify-content: space-between; padding: 4px 0; }
+    .new-token-link { display: flex; align-items: center; gap: 7px; text-decoration: none; }
+    .new-token-text { font-size: 14px; font-weight: 600; line-height: 20px; color: #1098A5; }
+    .new-token-side { font-size: 12px; line-height: 17px; color: #7B858F; }
+
+    /* Configs column (right) */
+    .configs-col { width: 528px; flex-shrink: 0; display: flex; flex-direction: column; gap: 16px; }
+    .configs-head { display: flex; flex-direction: column; gap: 8px; padding: 6px 0 10px; }
+    .configs-title { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; line-height: 30px; color: #1D232A; margin: 0; }
+    .configs-desc { font-size: 14px; line-height: 21px; color: #66717D; margin: 0; }
+    .config-row {
+      background: #FFFFFF; border: 1px solid #E3E7EB; border-radius: 10px;
+      display: flex; flex-direction: column; overflow: hidden;
+      transition: border-color 0.15s ease;
+    }
+    .config-row.open { border-color: #1098A5; }
+    .config-row-head {
+      display: flex; align-items: center; gap: 14px;
+      padding: 15px 16px; cursor: pointer;
+    }
+    .config-icon {
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; width: 40px; height: 40px; border-radius: 9px;
+      background: #F0F2F4; color: #4F5B66;
+      font-size: 13px; font-weight: 800; line-height: 18px;
+    }
+    .config-icon.active { background: #E8F7F8; color: #1098A5; }
+    .config-meta { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+    .config-name { font-size: 14px; font-weight: 700; line-height: 20px; color: #1D232A; }
+    .config-kind { font-size: 12px; line-height: 16px; color: #7B858F; }
+    .config-copy {
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; width: 34px; height: 34px; border-radius: 7px;
+      background: #1098A5; border: none; cursor: pointer;
+      transition: background 0.15s ease;
+    }
+    .config-copy:hover { background: #0E8390; }
+    .config-code {
+      display: none; padding: 0 16px 16px;
+    }
+    .config-row.open .config-code { display: block; }
+    .config-code pre {
+      margin: 0; padding: 14px 16px;
+      background: #F7F9FA; border: 1px solid #E3E7EB; border-radius: 8px;
+      font-family: 'Roboto Mono', 'SF Mono', 'Consolas', monospace;
+      font-size: 12px; line-height: 17px; color: #3E4852;
+      overflow-x: auto; white-space: pre; word-break: normal;
+    }
+
+    /* ---------- Toast ---------- */
+    .toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px);
+      background: #1D232A; color: #FFFFFF; font-size: 14px; font-weight: 500;
+      padding: 10px 18px; border-radius: 8px; opacity: 0;
+      transition: opacity 0.2s ease, transform 0.2s ease; pointer-events: none; z-index: 50;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* ---------- Responsive ---------- */
+    @media (max-width: 1080px) {
+      .main { flex-direction: column; gap: 32px; padding: 32px 20px; }
+      .token-col, .configs-col { width: 100%; }
+      .success-desc { width: 100%; }
+    }
+    @media (max-width: 960px) {
+      .success-title { font-size: 28px; line-height: 36px; }
+    }
+    @media (max-width: 520px) {
+      .account { flex-wrap: wrap; gap: 12px 0; }
+      .account-field, .account-field-id { width: 50%; padding: 0; border: none; }
+      .account-field-ttl { width: 100%; border-top: 1px solid #E3E7EB; border-left: none; padding-top: 12px; padding-left: 0; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <img src="/logo.png" alt="TrueConf" class="brand-logo">
+      <div class="brand-text">
+        <span class="brand-name">{{ t.common.title }}</span>
+        <span class="brand-sub">{{ t.common.subtitle }}</span>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <div class="lang-switch" id="langSwitch">
+        <button class="lang-trigger" type="button" aria-haspopup="true" aria-expanded="false" aria-label="{{ t.common.lang_label }}">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="9" stroke="#4F5B66" stroke-width="1.8" />
+            <path d="M3 12h18M12 3c2.5 2.7 4 5.8 4 9s-1.5 6.3-4 9c-2.5-2.7-4-5.8-4-9s1.5-6.3 4-9z" stroke="#4F5B66" stroke-width="1.8" />
+          </svg>
+          <span class="lang-current">{{ lang_code }}</span>
+          <svg class="lang-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none">
+            <path d="M6 9l6 6 6-6" stroke="#4F5B66" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </button>
+        <div class="lang-menu" role="menu">
+          <a href="{{ lang_url_en }}" class="lang-option {{ lang_active_en }}" role="menuitem">{{ t.common.lang_en }}</a>
+          <a href="{{ lang_url_ru }}" class="lang-option {{ lang_active_ru }}" role="menuitem">{{ t.common.lang_ru }}</a>
+        </div>
+      </div>
+      <div class="status-badge" id="statusBadge"
+           data-server-url="{{ server_url }}"
+           data-online="{{ t.common.status_ok }}" data-offline="{{ t.common.status_off }}">
+        <span class="status-dot pending" id="statusDot"></span>
+        <span class="status-text" id="statusText">{{ t.common.status_checking }}</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="main">
+    <section class="token-col">
+      <div class="success-head">
+        <div class="success-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="9" stroke="#18A06A" stroke-width="2" />
+            <path d="M8 12l2.5 2.5L16 9" stroke="#18A06A" stroke-width="2" />
+          </svg>
+        </div>
+        <h1 class="success-title">{{ t.success.heading }}</h1>
+        <p class="success-desc">{{ t.success.desc }}</p>
+      </div>
+
+      <div class="account">
+        <div class="account-field account-sep">
+          <span class="account-field-label">{{ t.success.field_user }}</span>
+          <span class="account-field-value">{{ name }}</span>
+        </div>
+        <div class="account-field account-field-id">
+          <span class="account-field-label">{{ t.success.field_id }}</span>
+          <span class="account-field-value">{{ user_id }}</span>
+        </div>
+        <div class="account-field account-field-ttl">
+          <span class="account-field-label">{{ t.success.field_ttl }}</span>
+          <span class="account-field-value">{{ t.ttl_value }}</span>
+        </div>
+      </div>
+
+      <div class="token-card">
+        <div class="token-card-head">
+          <span class="token-card-title">{{ t.success.token_title }}</span>
+          <span class="active-badge">
+            <span class="active-dot"></span>
+            <span class="active-text">{{ t.success.active }}</span>
+          </span>
+        </div>
+        <div class="token-row">
+          <span class="token-value" id="token-display"></span>
+          <button class="copy-btn" type="button" data-copy="{{ token }}" aria-label="{{ t.success.toast_token }}">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+              <rect x="8" y="8" width="11" height="11" rx="2" stroke="#FFFFFF" stroke-width="2" />
+              <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" stroke="#FFFFFF" stroke-width="2" />
+            </svg>
+          </button>
+        </div>
+        <p class="token-hint">{{ t.success.token_hint }}</p>
+      </div>
+
+      <div class="token-actions">
+        <a class="new-token-link" href="/">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+            <path d="M4 12a8 8 0 1 0 3-6.2L4 9" stroke="#1098A5" stroke-width="2" />
+            <path d="M4 4v5h5" stroke="#1098A5" stroke-width="2" />
+          </svg>
+          <span class="new-token-text">{{ t.success.new_token }}</span>
+        </a>
+        <span class="new-token-side">{{ t.success.new_token_side }}</span>
+      </div>
+    </section>
+
+    <section class="configs-col">
+      <div class="configs-head">
+        <h2 class="configs-title">{{ t.success.configs_title }}</h2>
+        <p class="configs-desc">{{ t.success.configs_desc }}</p>
+      </div>
+
+      <div class="config-row open" data-config="lmstudio">
+        <div class="config-row-head">
+          <div class="config-icon active">LM</div>
+          <div class="config-meta">
+            <span class="config-name">LM Studio</span>
+            <span class="config-kind">{{ t.success.kind_http }}</span>
+          </div>
+          <button class="config-copy" type="button" data-copy-target="cfg-lmstudio" aria-label="{{ t.success.toast_config }}">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <rect x="8" y="8" width="11" height="11" rx="2" stroke="#FFFFFF" stroke-width="2" />
+              <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" stroke="#FFFFFF" stroke-width="2" />
+            </svg>
+          </button>
+        </div>
+        <div class="config-code"><pre id="cfg-lmstudio">{
+  "mcpServers": {
+    "trueconf": {
+      "url": "{{ base_url }}/mcp",
+      "headers": {
+        "Authorization": "Bearer {{ token }}"
+      }
+    }
+  }
+}</pre></div>
+      </div>
+
+      <div class="config-row" data-config="cursor">
+        <div class="config-row-head">
+          <div class="config-icon">CU</div>
+          <div class="config-meta">
+            <span class="config-name">Cursor</span>
+            <span class="config-kind">{{ t.success.kind_mcp_json }}</span>
+          </div>
+          <button class="config-copy" type="button" data-copy-target="cfg-cursor" aria-label="{{ t.success.toast_config }}">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <rect x="8" y="8" width="11" height="11" rx="2" stroke="#FFFFFF" stroke-width="2" />
+              <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" stroke="#FFFFFF" stroke-width="2" />
+            </svg>
+          </button>
+        </div>
+        <div class="config-code"><pre id="cfg-cursor">{
+  "mcpServers": {
+    "trueconf": {
+      "url": "{{ base_url }}/mcp",
+      "headers": {
+        "Authorization": "Bearer {{ token }}"
+      }
+    }
+  }
+}</pre></div>
+      </div>
+
+      <div class="config-row" data-config="claude">
+        <div class="config-row-head">
+          <div class="config-icon">CL</div>
+          <div class="config-meta">
+            <span class="config-name">Claude Desktop</span>
+            <span class="config-kind">{{ t.success.kind_http }}</span>
+          </div>
+          <button class="config-copy" type="button" data-copy-target="cfg-claude" aria-label="{{ t.success.toast_config }}">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <rect x="8" y="8" width="11" height="11" rx="2" stroke="#FFFFFF" stroke-width="2" />
+              <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" stroke="#FFFFFF" stroke-width="2" />
+            </svg>
+          </button>
+        </div>
+        <div class="config-code"><pre id="cfg-claude">{
+  "mcpServers": {
+    "trueconf": {
+      "type": "http",
+      "url": "{{ base_url }}/mcp",
+      "headers": {
+        "Authorization": "Bearer {{ token }}"
+      }
+    }
+  }
+}</pre></div>
+      </div>
+
+      <div class="config-row" data-config="opencode">
+        <div class="config-row-head">
+          <div class="config-icon">OC</div>
+          <div class="config-meta">
+            <span class="config-name">OpenCode</span>
+            <span class="config-kind">{{ t.success.kind_mcp_servers }}</span>
+          </div>
+          <button class="config-copy" type="button" data-copy-target="cfg-opencode" aria-label="{{ t.success.toast_config }}">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <rect x="8" y="8" width="11" height="11" rx="2" stroke="#FFFFFF" stroke-width="2" />
+              <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" stroke="#FFFFFF" stroke-width="2" />
+            </svg>
+          </button>
+        </div>
+        <div class="config-code"><pre id="cfg-opencode">{
+  "mcp": {
+    "servers": {
+      "trueconf": {
+        "url": "{{ base_url }}/mcp",
+        "transport": "http",
+        "headers": {
+          "Authorization": "Bearer {{ token }}"
+        }
+      }
+    }
+  }
+}</pre></div>
+      </div>
+
+      <div class="config-row" data-config="openwebui">
+        <div class="config-row-head">
+          <div class="config-icon">OW</div>
+          <div class="config-meta">
+            <span class="config-name">OpenWebUI</span>
+            <span class="config-kind">{{ t.success.kind_url_header }}</span>
+          </div>
+          <button class="config-copy" type="button" data-copy-target="cfg-openwebui" aria-label="{{ t.success.toast_config }}">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <rect x="8" y="8" width="11" height="11" rx="2" stroke="#FFFFFF" stroke-width="2" />
+              <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" stroke="#FFFFFF" stroke-width="2" />
+            </svg>
+          </button>
+        </div>
+        <div class="config-code"><pre id="cfg-openwebui">{{ t.success.openwebui_url }}:   {{ base_url }}/mcp
+{{ t.success.openwebui_header }}: Authorization: Bearer {{ token }}</pre></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span class="footer-text">{{ t.common.title }}</span>
+    <div class="footer-right">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+        <circle cx="12" cy="12" r="9" stroke="#7B858F" stroke-width="1.8" />
+        <path d="M12 8v5M12 16h.01" stroke="#7B858F" stroke-width="1.8" />
+      </svg>
+      <span class="footer-text">{{ t.common.footer_security }}</span>
+    </div>
+  </footer>
+
+  <div class="toast" id="toast">{{ t.success.toast_copied }}</div>
+
+  <script>
+    var T = {
+      tokenCopied: "{{ t.success.toast_token }}",
+      configCopied: "{{ t.success.toast_config }}"
+    };
+    (function () {
+      var token = "{{ token }}";
+      var display = document.getElementById("token-display");
+      if (token.length > 14) {
+        display.textContent = token.slice(0, 9) + "••••••••••••" + token.slice(-4);
+      } else {
+        display.textContent = token;
+      }
+
+      var toast = document.getElementById("toast");
+      var toastTimer;
+      function showToast(msg) {
+        toast.textContent = msg;
+        toast.classList.add("show");
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(function () { toast.classList.remove("show"); }, 1800);
+      }
+
+      function copyText(text) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          return navigator.clipboard.writeText(text);
+        }
+        var ta = document.createElement("textarea");
+        ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+        document.body.appendChild(ta); ta.select();
+        try { document.execCommand("copy"); } catch (e) {}
+        document.body.removeChild(ta);
+        return Promise.resolve();
+      }
+
+      document.querySelectorAll("[data-copy]").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          copyText(btn.getAttribute("data-copy")).then(function () { showToast(T.tokenCopied); });
+        });
+      });
+
+      document.querySelectorAll("[data-copy-target]").forEach(function (btn) {
+        btn.addEventListener("click", function (e) {
+          e.stopPropagation();
+          var el = document.getElementById(btn.getAttribute("data-copy-target"));
+          if (el) { copyText(el.textContent).then(function () { showToast(T.configCopied); }); }
+        });
+      });
+
+      document.querySelectorAll(".config-row").forEach(function (row) {
+        var head = row.querySelector(".config-row-head");
+        head.addEventListener("click", function (e) {
+          if (e.target.closest(".config-copy")) return;
+          var wasOpen = row.classList.contains("open");
+          document.querySelectorAll(".config-row").forEach(function (r) {
+            r.classList.remove("open");
+            var ic = r.querySelector(".config-icon");
+            if (ic) ic.classList.remove("active");
+          });
+          if (!wasOpen) {
+            row.classList.add("open");
+            var ic = row.querySelector(".config-icon");
+            if (ic) ic.classList.add("active");
+          }
+        });
+      });
+    })();
+  </script>
+  <script src="/static/app.js"></script>
+</body>
+</html>

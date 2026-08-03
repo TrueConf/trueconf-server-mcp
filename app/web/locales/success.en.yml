@@ -1,0 +1,26 @@
+en:
+  title: Done
+  heading: Key received successfully
+  desc: Save the token and add it to your MCP client settings. For security, it is only shown on this page.
+  field_user: User
+  field_id: ID
+  field_ttl: Validity
+  ttl:
+    one: "%{count} hour"
+    many: "%{count} hours"
+  token_title: Your API token
+  active: Active
+  token_hint: Do not share the key with third parties or publish it in a repository.
+  new_token: Get a new token
+  new_token_side: Current key stays active
+  configs_title: Add the server to a client
+  configs_desc: Pick an app and copy the ready-made configuration.
+  kind_http: HTTP configuration
+  kind_mcp_json: MCP JSON configuration
+  kind_mcp_servers: MCP servers configuration
+  kind_url_header: URL and authorization header
+  openwebui_url: URL
+  openwebui_header: Header
+  toast_copied: Copied
+  toast_token: Token copied
+  toast_config: Configuration copied

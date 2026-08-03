@@ -1,0 +1,14 @@
+en:
+  title: Authorization error
+  eyebrow: AUTHORIZATION ERROR
+  hero_title: Sign-in could not be completed
+  hero_desc: TrueConf Server did not confirm the authorization. Your data was not saved and no MCP-client access was granted.
+  response_heading: Server response
+  response_text: Something went wrong. Please try again.
+  token_exchange_failed: Failed to exchange the authorization code for a token. Check that TrueConf Server is reachable and try again.
+  network_error: A network error occurred while contacting TrueConf Server. Check your connection and try again.
+  create_token_failed: Failed to create an access token. Please try again.
+  retry_card_title: Try again
+  retry_card_desc: A new secure authorization session will open.
+  trust_note: Before retrying, make sure TrueConf Server is reachable.
+  button: Try again

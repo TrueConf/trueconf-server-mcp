@@ -1,0 +1,196 @@
+/* TrueConf Server MCP — shared chrome (login + success pages) */
+
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #F4F6F8;
+  color: #1D232A;
+  font-family: 'Roboto', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ---------- Top bar ---------- */
+.topbar {
+  flex-shrink: 0;
+  height: 88px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-inline: 64px;
+  background: #FFFFFF;
+  border-bottom: 1px solid #E3E7EB;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.brand-logo {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+.brand-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.brand-name {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 20px;
+  color: #1D232A;
+}
+.brand-sub {
+  font-size: 12px;
+  line-height: 16px;
+  color: #66717D;
+}
+.status-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #E3E7EB;
+  background: #FFFFFF;
+}
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 4px;
+  background: #18A06A;
+  flex-shrink: 0;
+}
+.status-dot.pending {
+  background: #B0BEC5;
+}
+.status-dot.offline {
+  background: #C62828;
+}
+.status-text {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 18px;
+  color: #3E4852;
+}
+
+/* ---------- Footer ---------- */
+.footer {
+  flex-shrink: 0;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-inline: 64px;
+  background: #FFFFFF;
+  border-top: 1px solid #E3E7EB;
+}
+.footer-text {
+  font-size: 12px;
+  line-height: 16px;
+  color: #7B858F;
+}
+.footer-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ---------- Language switcher (topbar) ---------- */
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.lang-switch {
+  position: relative;
+}
+.lang-trigger {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid #E3E7EB;
+  background: #FFFFFF;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 18px;
+  color: #3E4852;
+}
+.lang-trigger:hover {
+  border-color: #C9D2DA;
+}
+.lang-current {
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+.lang-chevron {
+  transition: transform 0.15s ease;
+}
+.lang-switch.open .lang-chevron {
+  transform: rotate(180deg);
+}
+.lang-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 220px;
+  padding: 6px;
+  border-radius: 10px;
+  border: 1px solid #E3E7EB;
+  background: #FFFFFF;
+  box-shadow: 0 8px 24px rgba(29, 35, 42, 0.12);
+  z-index: 40;
+}
+.lang-switch.open .lang-menu {
+  display: block;
+}
+.lang-option {
+  display: block;
+  padding: 8px 12px;
+  border-radius: 6px;
+  text-decoration: none;
+  font-size: 14px;
+  line-height: 20px;
+  color: #1D232A;
+}
+.lang-option:hover {
+  background: #F7F9FA;
+}
+.lang-option.active {
+  font-weight: 700;
+  color: #1098A5;
+  background: #E8F7F8;
+}
+
+/* ---------- Shared responsive (topbar + footer) ---------- */
+@media (max-width: 960px) {
+  .topbar {
+    height: 58px;
+    padding-inline: 20px;
+  }
+  .brand-logo {
+    width: 32px;
+    height: 32px;
+  }
+  .brand-sub {
+    display: none;
+  }
+  .status-text {
+    display: none;
+  }
+  .footer {
+    height: 56px;
+    padding-inline: 20px;
+  }
+}

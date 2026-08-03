@@ -1,0 +1,12 @@
+ru:
+  title: Вход
+  eyebrow: TRUECONF × MCP
+  hero_title: Управляйте TrueConf Server через AI-инструменты
+  hero_desc: Подключите совместимый MCP-клиент и безопасно работайте с конференциями, участниками, записями и сообщениями.
+  capability_title: Единая точка подключения
+  capability_desc: Авторизация проходит на вашем TrueConf Server
+  auth_title: Подключить MCP
+  auth_desc: Вы будете перенаправлены на страницу входа вашего TrueConf Server.
+  trust_note: Пароль не передаётся MCP-клиенту. Доступ можно отозвать в любой момент.
+  button: Авторизоваться
+  help_link: Как настроить MCP-клиент

@@ -1,0 +1,89 @@
+[project]
+name = "trueconf-server-mcp"
+dynamic = ["version"]
+description = "MCP server bridging LLM clients to TrueConf Server — manage conferences, recordings, invitations via Model Context Protocol."
+readme = { file = "README.md", content-type = "text/markdown" }
+requires-python = ">=3.12"
+license = "BSD-3-Clause-Clear"
+license-files = ["LICENSE*"]
+authors = [
+    { name = "TrueConf LLC", email = "info@trueconf.com" },
+    { name = "Anton Baadzhi", email = "baadzhianton@gmail.com" },
+]
+keywords = [
+    "trueconf",
+    "mcp",
+    "model-context-protocol",
+    "llm",
+    "video-conferencing",
+    "api",
+    "asyncio",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Framework :: AsyncIO",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Communications :: Conferencing",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+]
+dependencies = [
+    "fastmcp[code-mode]==3.4.2",
+    "mcp==1.27.2",
+    "httpx>=0.28.1",
+    "i18nice[YAML]>=0.16.0",
+    "pydantic>=2.0.0",
+    "python-dotenv>=1.2.2",
+    "typer>=0.27.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/TrueConf/trueconf-server-mcp"
+Repository = "https://github.com/TrueConf/trueconf-server-mcp"
+Documentation = "https://github.com/TrueConf/trueconf-server-mcp#readme"
+Issues = "https://github.com/TrueConf/trueconf-server-mcp/issues"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "ruff>=0.15.16",
+]
+
+[project.scripts]
+trueconf-server-mcp = "main:app"
+
+[build-system]
+requires = ["setuptools>=77.0.0", "setuptools-scm>=7.2.1", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.uv]
+package = true
+
+[tool.setuptools]
+include-package-data = true
+py-modules = ["main"]
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.setuptools.package-data]
+app = [
+    "web/assets/*",
+    "web/locales/*",
+    "web/static/*",
+    "web/templates/*",
+]
+
+[tool.setuptools_scm]
+version_file = "app/_version.py"
+version_scheme = "guess-next-dev"
+local_scheme = "no-local-version"
+fallback_version = "0.1.0"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"

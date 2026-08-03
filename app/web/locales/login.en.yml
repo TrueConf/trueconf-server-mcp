@@ -1,0 +1,12 @@
+en:
+  title: Sign in
+  eyebrow: TRUECONF × MCP
+  hero_title: Control TrueConf Server through AI tools
+  hero_desc: Connect a compatible MCP client and securely manage conferences, participants, recordings and messages.
+  capability_title: Single access point
+  capability_desc: Authorization happens on your TrueConf Server
+  auth_title: Connect MCP
+  auth_desc: You will be redirected to your TrueConf Server login page.
+  trust_note: Your password is never shared with the MCP client. Access can be revoked at any time.
+  button: Authorize
+  help_link: How to set up an MCP client

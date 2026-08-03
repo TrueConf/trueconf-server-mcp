@@ -1,0 +1,10 @@
+en:
+  title: TrueConf Server MCP
+  subtitle: Secure connection
+  status_ok: Server online
+  status_off: Server offline
+  status_checking: Checking…
+  footer_security: "OAuth 2.0 · secure connection"
+  lang_label: Language
+  lang_en: English – English
+  lang_ru: Russian – Русский
