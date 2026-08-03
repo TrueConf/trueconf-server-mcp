@@ -62,15 +62,25 @@
 
 ### Step 1 — Installation
 
+Install the application with `uv` (recommended):
+
+```bash
+uv tool install trueconf-server-mcp
+```
+
+Or install it with `pip`:
+
 ```bash
 pip install trueconf-server-mcp
 ```
 
 > [!TIP]
-> If you have [uv](https://docs.astral.sh/uv/) installed, you can run the server without installing it:
+> You can also use [`uvx`](https://docs.astral.sh/uv/guides/tools/) to run the application without installing it permanently:
 > ```bash
-> uvx run trueconf-server-mcp --server 10.0.0.1 --client-id ... --client-secret ...
+> uvx trueconf-server-mcp --server 10.0.0.1 --client-id ... --client-secret ...
 > ```
+>
+> If the `trueconf-server-mcp` command is not available after `uv tool install`, run `uv tool update-shell` and restart your terminal.
 
 ### Step 2 — Create an OAuth application
 
