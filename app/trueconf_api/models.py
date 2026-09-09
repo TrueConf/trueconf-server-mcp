@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import Literal
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 ConferenceMode = Literal["PxP", "OxP", "S|L", "S|L Auto"]
@@ -27,6 +27,28 @@ class ConferenceInvitationCreate(BaseModel):
     is_moderator: bool | None = None
 
 
+class ConferenceRegistrationCreate(BaseModel):
+    enabled: bool | None = None
+    email_verification_required: bool | None = None
+    start_at: int | None = None
+    end_at: int | None = None
+    participants_limit_enabled: bool | None = None
+    participants_limit: int | None = None
+    allow_users_access: bool | None = None
+
+
+class ConferenceInvitationAdd(BaseModel):
+    """Participant payload for ``POST /conferences/{id}/invitations``.
+
+    InvitationAddEntity exposes only ``id`` and ``display_name`` — an
+    ``is_moderator`` field is not part of this endpoint's schema and the
+    server silently drops it.
+    """
+
+    id: str
+    display_name: str | None = None
+
+
 class ConferenceCreate(BaseModel):
     topic: str
     owner: str
@@ -38,7 +60,8 @@ class ConferenceCreate(BaseModel):
         default_factory=lambda: ConferenceSchedule(type="none")
     )
     invitations: list[ConferenceInvitationCreate] | None = None
-    allow_guests: bool = False
+    registration: ConferenceRegistrationCreate | None = None
+    rights: dict[str, dict[str, bool]] | None = None
     auto_invite: int | None = None
     auto_termination_enabled: bool | None = None
     broadcast_enabled: bool | None = None
@@ -60,7 +83,7 @@ class ConferenceUpdate(BaseModel):
     access: ConferenceAccess | None = None
     description: str | None = None
     schedule: ConferenceSchedule | None = None
-    allow_guests: bool | None = None
+    rights: dict[str, dict[str, bool]] | None = None
     auto_invite: int | None = None
     auto_termination_enabled: bool | None = None
     broadcast_enabled: bool | None = None
@@ -109,6 +132,7 @@ class ConferenceRegistrationRequest(BaseModel):
     fields: dict[str, ConferenceRegistrationField] | None = None
     send_email: bool = True
 
+
 # ── Query parameter filters ────────────────────────────────────────────
 
 
@@ -130,15 +154,6 @@ class RecordingSearchFilters(BaseModel):
     topic: str | None = None
 
 
-class ChatExportFilters(BaseModel):
-    date_from: int | None = None
-    date_to: int | None = None
-    from_call_id: str | None = None
-    to_call_id: str | None = None
-    message: str | None = None
-    session_id: str | None = None
-
-
 class DeepLinksFilters(BaseModel):
     case: str | None = None
     user: str | None = None
@@ -147,3 +162,11 @@ class DeepLinksFilters(BaseModel):
 class CalculateConferencesFilters(BaseModel):
     access: ConferenceAccess | None = None
     multicast_enabled: bool | None = None
+
+
+class AddressBookFilters(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    search: str | None = Field(default=None, alias="filter_search")
+    page: int | None = Field(default=None, alias="page_id")
+    page_size: int | None = None

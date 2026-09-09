@@ -13,6 +13,7 @@ from app.mcp.auth import init_auth
 from app.mcp import mcp, set_token_store, init_http_client, close_http_client
 from app.mcp.token_store import init_token_store, periodic_cleanup
 import app.mcp.tools.conferences  # noqa: F401 — triggers tool registration
+import app.mcp.tools.users  # noqa: F401 — triggers tool registration
 import app.mcp.prompts  # noqa: F401 — triggers prompt registration
 import app.mcp.routes  # noqa: F401 — triggers custom route registration
 from app.mcp.routes import register_login_callback

@@ -1,3 +1,4 @@
+import ssl
 from ipaddress import ip_address
 
 import datetime
@@ -209,3 +210,31 @@ def test_ensure_self_signed_cert_regenerates_when_key_missing(tmp_path):
     # Key was regenerated.
     key = serialization.load_pem_private_key(key_path.read_bytes(), password=None)
     assert isinstance(key, rsa.RSAPrivateKey)
+
+
+def test_ensure_self_signed_cert_regenerates_when_cert_and_key_mismatched(tmp_path):
+    """A crash between the cert write and the key write leaves a new cert.pem + old key.pem.
+
+    All other reuse checks (expiry, SAN, key loadable) pass, but the pair is
+    mismatched: ssl.load_cert_chain fails with KEY_VALUES_MISMATCH and the
+    server cannot start — and the state never heals itself. The reuse check
+    must detect the key↔cert mismatch and regenerate a consistent pair.
+    """
+    storage_dir = tmp_path / "tls"
+    san_names = ["localhost"]
+    _write_cert_with_expiry(storage_dir, san_names, days_valid_after=60)
+    # Simulate the crash: a regenerated cert (signed by a different key) was
+    # fully written, but the old key.pem was never replaced.
+    new_cert_pem, _ = generate_self_signed_cert(san_names)
+    (storage_dir / "cert.pem").write_bytes(new_cert_pem)
+
+    cert_path, key_path = ensure_self_signed_cert(storage_dir, san_names)
+
+    # Final state is a consistent pair that ssl accepts.
+    cert = x509.load_pem_x509_certificate(cert_path.read_bytes())
+    key = serialization.load_pem_private_key(key_path.read_bytes(), password=None)
+    assert cert.public_key().public_numbers() == key.public_key().public_numbers()
+    ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    ctx.load_cert_chain(str(cert_path), str(key_path))
+    # No stray staging files left in the storage dir.
+    assert sorted(p.name for p in storage_dir.iterdir()) == ["cert.pem", "key.pem"]

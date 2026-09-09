@@ -1,8 +1,8 @@
 <p align="center">
   <a href="https://trueconf.com" target="_blank" rel="noopener noreferrer">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/TrueConf/.github/refs/heads/main/logos/logo-dark.svg">
-      <img width="150" alt="TrueConf" src="https://raw.githubusercontent.com/TrueConf/.github/refs/heads/main/logos/logo.svg">
+      <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/TrueConf/.github/refs/heads/main/logos/logo-cyrillic-dark.svg">
+      <img width="150" alt="TrueConf" src="https://raw.githubusercontent.com/TrueConf/.github/refs/heads/main/logos/logo-cyrillic.svg">
     </picture>
   </a>
 </p>
@@ -34,9 +34,9 @@
 
 ## Introduction
 
-[**Model Context Protocol (MCP)**](https://modelcontextprotocol.io) is an open standard that allows large language models (LLMs) to invoke external tools through a unified protocol. Without MCP, every LLM client would require a separate TrueConf Server API integration. With MCP, a single server exposes all tools, and any compatible MCP client can immediately use them to create conferences, manage invitations, and access recordings and chats.
+[**Model Context Protocol (MCP)**](https://modelcontextprotocol.io) is an open standard that allows large language models (LLMs) to invoke external tools through a unified protocol. Without MCP, every LLM client would require a separate TrueConf Server API integration. With MCP, a single server exposes all tools, and any compatible MCP client can immediately use them to create conferences, manage invitations, and access recordings.
 
-**TrueConf Server MCP** is an intermediary between an LLM client and TrueConf Server. It provides 32 tools for working with conferences, recordings, invitations, participants, chats, calendars, notifications, and translations.
+**TrueConf Server MCP** is an intermediary between an LLM client and TrueConf Server. It provides 30 tools for working with conferences, recordings, invitations, participants, calendars, notifications, and translations.
 
 ### Server capabilities
 
@@ -62,25 +62,15 @@
 
 ### Step 1 — Installation
 
-Install the application with `uv` (recommended):
-
-```bash
-uv tool install trueconf-server-mcp
-```
-
-Or install it with `pip`:
-
 ```bash
 pip install trueconf-server-mcp
 ```
 
 > [!TIP]
-> You can also use [`uvx`](https://docs.astral.sh/uv/guides/tools/) to run the application without installing it permanently:
+> If you have [uv](https://docs.astral.sh/uv/) installed, you can run the server without installing it:
 > ```bash
-> uvx trueconf-server-mcp --server 10.0.0.1 --client-id ... --client-secret ...
+> uvx run trueconf-server-mcp --server 10.0.0.1 --client-id ... --client-secret ...
 > ```
->
-> If the `trueconf-server-mcp` command is not available after `uv tool install`, run `uv tool update-shell` and restart your terminal.
 
 ### Step 2 — Create an OAuth application
 
@@ -102,13 +92,13 @@ The MCP server requires the `client_id` and `client_secret` of an OAuth applicat
    | Scope | Description |
    |---|---|
    | `conferences:read` | Read conferences, deep links, shared links, calendars, and translations |
-   | `conferences:write` | Create, edit, delete, start, stop, and join conferences |
+   | `conferences:write` | Create, edit, delete, start, stop, join, invite, notify, and register conferences |
    | `conferences.invitations:read` | Read invitations |
-   | `conferences.invitations:write` | Add, edit, delete, and send invitations; send notifications; register users |
-   | `conferences.participants:read` | Read participants, the conference owner, and the current user |
+   | `conferences.invitations:write` | Add, edit, and delete invitations |
+   | `conferences.participants:read` | Read conference participants |
    | `conferences.records:read` | Read recordings |
    | `conferences.records:write` | Start, stop, and pause recordings |
-   | `conferences.messages:read` | Read and export chat messages |
+   | `conferences.restrictions:read` | Calculate conference restrictions (`calculate_conferences`) |
 
 4. Copy the `client_id` and `client_secret`. You will need them in the next step.
 
@@ -412,7 +402,7 @@ The `--discovery-mode` option controls how the MCP client sees the server tools:
 
 | Mode | Description |
 |---|---|
-| `static` *(default)* | All 32 tools are exposed directly. Recommended for most use cases. |
+| `static` *(default)* | All 30 tools are exposed directly. Recommended for most use cases. |
 | `bm25` | Tools are hidden behind a search gateway. The LLM searches for an appropriate tool by its description, reducing context usage when many tools are available. |
 | `code` | CodeMode sandbox. Tools are available through a code sandbox for complex workflows. |
 

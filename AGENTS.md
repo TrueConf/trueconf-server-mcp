@@ -4,17 +4,16 @@
 
 ```bash
 # Typer CLI (entry point после uv sync):
-trueconf-server-mcp serve --server 10.0.0.1 --port 9000
+trueconf-server-mcp --server 10.0.0.1 --port 9000
 
 # или через python main.py (тот же Typer app):
-uv run python main.py serve --server 10.0.0.1
-
-# без подкоманды — работает (serve — единственная команда):
 uv run python main.py --server 10.0.0.1
 
 # с .env файлом (см. ниже):
 uv run python main.py
 ```
+
+Подкоманд нет: Typer схлопывает единственную команду `serve` в корень. `main.py serve --server X` падает с `Got unexpected extra argument(s) (serve)`; обманчиво, что `main.py serve --help` при этом показывает help (help обрабатывается до валидации аргументов).
 
 Python 3.12, пакеты через `uv`. Тесты: `uv run pytest` (pytest + pytest-asyncio, `asyncio_mode = auto`, 15 файлов в `tests/`). Линтер: `uv run ruff check .`.
 
@@ -22,7 +21,7 @@ Python 3.12, пакеты через `uv`. Тесты: `uv run pytest` (pytest +
 
 **CLI flags > env vars > `.env` > дефолты кода.**
 
-1. **CLI flags** — `--server`, `--port`, `--discovery-mode {static|bm25|code}`, ... (см. `trueconf-server-mcp serve --help`).
+1. **CLI flags** — `--server`, `--port`, `--discovery-mode {static|bm25|code}`, ... (см. `trueconf-server-mcp --help`).
 2. **Environment variables** — `TRUECONF_SERVER`, `TRUECONF_MCP_PORT`, ... (Typer `envvar=` читает их автоматически).
 3. **`.env` файл** — загружается через `python-dotenv` (`load_dotenv()` в начале `main.py`). Пример: `.env.example`. Реальный `.env` в `.gitignore`.
 4. **Дефолты** — в сигнатурах Typer-опций и `app/config.py::Config`.
@@ -35,20 +34,20 @@ Python 3.12, пакеты через `uv`. Тесты: `uv run pytest` (pytest +
 |---|---|---|---|
 | `--server` | `TRUECONF_SERVER` | (обязательный) | Хост TrueConf Server |
 | `--client-id` | `TRUECONF_CLIENT_ID` | (обязательный) | OAuth client_id |
-| `--secret` | `TRUECONF_SECRET` | (обязательный) | OAuth client_secret |
+| `--client-secret` | `TRUECONF_SECRET` | (обязательный) | OAuth client_secret |
 | `--verify-ssl/--no-verify-ssl` | `TRUECONF_VERIFY_SSL` | `true` | Проверка SSL-сертификата |
 | `--base-url` | `MCP_BASE_URL` | `https://localhost` | Публичный URL сервера. По умолчанию `https://localhost` (порт 443 опускается); `http://localhost:<port>` при `--no-tls`. |
 | `--port` | `TRUECONF_MCP_PORT` | `443` (`80` при `--no-tls`) | Порт. HTTPS по умолчанию 443, plain HTTP при `--no-tls` — 80. |
 | `--no-tls` | `MCP_NO_TLS` | `false` | Отключить TLS — plain HTTP. Дефолт порта становится 80, самоподписанный сертификат не генерируется. |
 | `--tls-cert` | `MCP_TLS_CERT` | (none → авто-генерация) | Путь к PEM-сертификату. Требует `--tls-key`. Если не указан и TLS включён — генерируется self-signed. |
 | `--tls-key` | `MCP_TLS_KEY` | (none → авто-генерация) | Путь к PEM-ключу. Требует `--tls-cert`. |
-| `--discovery-mode` | `DISCOVERY_MODE` | `static` | `static` (все 32 инструмента), `bm25` (search gateway), `code` (CodeMode sandbox) |
+| `--discovery-mode` | `DISCOVERY_MODE` | `static` | `static` (все 31 инструмент: 30 conferences + 1 users), `bm25` (search gateway), `code` (CodeMode sandbox) |
 | — | `CODE_MODE_EXPERIMENTAL` | `false` | **Deprecated** — legacy-альяс: `true` → `discovery-mode=code` (только если `--discovery-mode`/`DISCOVERY_MODE` не заданы явно) |
 | `--auth-mode` | `AUTH_MODE` | `token` | `token` = ручной токен через TokenStore (единственный активный режим). `oauth` = OAuthProxy + DCR (**отключён**: `_TrueConfTokenVerifier` принимал любой токен — auth bypass; код оставлен как dead code для будущего re-enable после реализации настоящей верификации). `--auth-mode oauth` rejected Typer. |
 | `--api-token-ttl` | `API_TOKEN_TTL` | `86400` | TTL нашего токена (сек) |
 | `--http-timeout` | `HTTP_TIMEOUT` | `30.0` | Timeout (сек) для HTTP-запросов к TrueConf API |
 
-`run.sh` / `run.bat` содержат хардкод-креденшалы — не коммитьте изменения в них. Для локальной разработки скопируйте `.env.example` → `.env` и отредактируйте.
+Для локальной разработки скопируйте `.env.example` → `.env` и отредактируйте.
 
 ## TLS
 
@@ -57,7 +56,7 @@ Python 3.12, пакеты через `uv`. Тесты: `uv run pytest` (pytest +
 - `https://10.100.2.108` → SAN `[10.100.2.108]`
 - `https://conf.local` → SAN `[conf.local]`
 
-Сертификат **персистится** в `~/Library/Application Support/fastmcp/tls/{cert.pem,key.pem}` (права `0600` на ключ) и переиспользуется между рестартами. Регенерация — при отсутствии файлов, истечении срока (<30 дней), **или несовпадении SAN с текущим `MCP_BASE_URL`**.
+Сертификат **персистится** в `~/Library/Application Support/fastmcp/tls/{cert.pem,key.pem}` (права `0600` на ключ) и переиспользуется между рестартами. Регенерация — при отсутствии файлов, истечении срока (<30 дней), **несовпадении SAN с текущим `MCP_BASE_URL`** или несовпадении key↔cert (self-heal после крэша между двумя атомарными установками). Новая пара сначала staging'ится во временный каталог и ставится через `os.replace`.
 
 **Кастомный сертификат**: `--tls-cert /path/cert.pem --tls-key /path/key.pem` (оба флага обязательны, если указан хотя бы один). Используется для валидных сертификатов (Let's Encrypt и т.п.).
 
@@ -78,25 +77,30 @@ Python 3.12, пакеты через `uv`. Тесты: `uv run pytest` (pytest +
 ## Архитектура
 
 ```
-main.py                    # Typer CLI (app + serve + DiscoveryMode), run_server(config),
-                           # _serve() (uvicorn+cleanup_task), import-time side effects
+main.py                    # Typer CLI (единственная команда serve, схлопнута в корень,
+                           # DiscoveryMode), run_server(config),
+                           # _serve() (mcp.run_http_async + cleanup_task), import-time side effects
                            # (load_dotenv, logging.basicConfig, init_i18n, регистрация
                            # tools/prompts/routes через side-effect imports)
 app/
     __init__.py            # маркер пакета
-    config.py              # Config dataclass + get_config()/set_config() — единый источник конфигурации
+    _version.py            # версия (генерируется setuptools-scm)
+    config.py              # Config dataclass + build_config()/get_config()/set_config() —
+                           # единый источник конфигурации; константа TRUECONF_API_VERSION
     tls.py                 # TLS: extract_san_names, generate/ensure_self_signed_cert,
                            # resolve_tls_files(config), bind_error_help(port)
     trueconf_api/          # слой 1: чистый домен TrueConf (без зависимостей от MCP/fastmcp)
         __init__.py        # маркер пакета
         models.py          # Pydantic-модели из OpenAPI schemas
-        mode_utils.py      # _resolve_mode() + _MODE_MAP / _ACCESS_MAP
+        mode_utils.py      # _resolve_mode()/_resolve_access()/build_guest_rights()
+                           # + _MODE_MAP / _ACCESS_MAP
     mcp/                   # слой 2: MCP-инфра (зависит от trueconf_api + fastmcp)
-        __init__.py        # mcp (FastMCP), _request(), init_http_client()/close_http_client()
+        __init__.py        # mcp (FastMCP), _request(), _request_file() (бинарные ответы),
+                           # init_http_client()/close_http_client()/get_http_client(),
                            # _token_store + get_token_store()/set_token_store() — общие утилиты
         auth.py            # ApiTokenAuth — наш UUID → TrueConf токен + авто-refresh,
-                           # create_oauth_auth() — OAuthProxy с DCR,
-                            # init_auth(config, token_store) — всегда ApiTokenAuth (OAuth path disabled)
+                           # create_oauth_auth() — OAuthProxy с DCR (dead code, disabled),
+                           # init_auth(config, token_store) — всегда ApiTokenAuth (OAuth path disabled)
         token_store.py     # TokenStore — зашифрованное файловое хранилище токенов,
                            # init_token_store(config) — фабрика (derive keys + FileTreeStore + Fernet),
                            # periodic_cleanup() — часовая фоновая задача (вызывает cleanup_expired)
@@ -105,13 +109,16 @@ app/
         code_mode.py       # CodeMode: guide + create_code_mode_transform()
         pages.py           # HTML-страницы (login/success/error) + путь к templates/
         prompts.py         # MCP-prompts (conference_help) — side-effect регистрация через import
-        routes.py          # HTTP UI-роуты (/, /success, /error, /auth/callback, /api/health,
-                           # /static/*, /favicon.ico, /logo.png) + _cors() +
-                            # register_login_callback() — всегда (OAuth path disabled)
+        i18n.py            # i18nice: yml-локали ru/en, detect_lang() (?lang → cookie → Accept-Language)
+        errors.py          # make_error() — единообразные error-dict для инструментов
+        logging_utils.py   # mask_token()
+        routes.py          # HTTP UI-роуты (/, /success, /error, /&state=null, /auth/callback,
+                           # /api/health, /static/app.css, /static/app.js, /favicon.ico, /logo.png)
+                           # + _cors() (Origin-allowlist) + register_login_callback() — всегда
         tools/
-            __init__.py    # маркер (агрегатор при масштабировании: транскрипции и т.д.)
-            conferences/   # 32 MCP-инструмента, один файл на инструмент
-                __init__.py # импорт всех 32 модулей → триггер @mcp.tool регистрации
+            __init__.py    # агрегатор: импорт доменов (сейчас users)
+            conferences/   # 30 MCP-инструментов, один файл на инструмент
+                __init__.py # импорт всех 30 модулей → триггер @mcp.tool регистрации
                 # Core CRUD
                 list_conferences.py
                 get_conference.py
@@ -139,10 +146,6 @@ app/
                 start_recording.py
                 stop_recording.py
                 pause_recording.py
-                download_recording.py
-                # Chat
-                get_chat_messages.py
-                export_chat_messages.py
                 # Links & Calendar
                 get_deeplinks.py
                 get_shared_links.py
@@ -155,19 +158,21 @@ app/
                 get_conference_translations.py
                 # Admin
                 calculate_conferences.py
-            # (масштабируется: tools/transcriptions/, tools/users/ и т.д.)
+                schedule_utils.py  # хелпер без @mcp.tool: schedule/guest_rights
+            users/         # 1 MCP-инструмент
+                __init__.py # импорт модулей → триггер @mcp.tool регистрации
+                get_user_addressbook.py  # только API v4.1 (TrueConf Server ≥ 5.5.6)
+            # (масштабируется: tools/transcriptions/ и т.д.)
     web/                   # веб-ассеты и шаблоны (раньше были в корне как static/ + templates/)
         assets/            # favicon.ico, logo.png
         static/
             app.css        # Общий chrome (topbar, footer, lang-switch, status-badge) — login/success/error
             app.js         # Language switcher dropdown + TrueConf Server health check
+        locales/           # i18nice yml: common/login/success/error × ru/en
         templates/
-    login.html             # Полная страница входа (shared topbar + two-column main + footer)
-    success.html           # Полная страница после авторизации (токен + конфиги MCP-клиентов)
-    error.html             # Полная страница ошибки OAuth (красный акцент, retry-карточка)
-    login_body.html        # Legacy body-фрагмент (не используется)
-    success_body.html      # Legacy body-фрагмент (не используется)
-openapi.yaml               # TrueConf Server API v4 (277 эндпоинтов)
+            login.html     # Полная страница входа (shared topbar + two-column main + footer)
+            success.html   # Полная страница после авторизации (токен + конфиги MCP-клиентов)
+            error.html     # Полная страница ошибки OAuth (красный акцент, retry-карточка)
 ```
 
 ## Критично: Токен-флоу
@@ -189,9 +194,18 @@ openapi.yaml               # TrueConf Server API v4 (277 эндпоинтов)
 
 **Не путайте наш UUID-токен с TrueConf access_token.** `ApiTokenAuth` делает маппинг.
 
-**CORS для cookie-флоу.** TrueConf Server выполняет `/oauth2/authorize` через `fetch()` из JS — `/auth/callback` приходит как **credentialed cross-site CORS request**. Для таких запросов браузер требует: (1) `Access-Control-Allow-Origin` = конкретный Origin (не `*`), (2) `Access-Control-Allow-Credentials: true`. Без обоих браузер блокирует ответ и **дропает `Set-Cookie`** → `/success` не видит cookie → login loop. `_cors()` в `routes.py` эхит Origin из request + ставит `Allow-Credentials: true` + `Vary: Origin`. `SameSite=None` + `Secure` на cookie необходимы, но **недостаточны** без правильных CORS headers.
+**CORS для cookie-флоу.** TrueConf Server выполняет `/oauth2/authorize` через `fetch()` из JS — `/auth/callback` приходит как **credentialed cross-site CORS request**. Для таких запросов браузер требует: (1) `Access-Control-Allow-Origin` = конкретный Origin (не `*`), (2) `Access-Control-Allow-Credentials: true`. Без обоих браузер блокирует ответ и **дропает `Set-Cookie`** → `/success` не видит cookie → login loop. `_cors()` в `routes.py` ставит `Access-Control-Allow-Origin` = Origin **только если Origin входит в allowlist** (base URL TrueConf Server или `MCP_BASE_URL`), + `Allow-Credentials: true` + `Vary: Origin`; без Origin — `*`. `SameSite=None` + `Secure` на cookie необходимы, но **недостаточны** без правильных CORS headers.
 
 **Неаутентифицированные запросы (pass-through).** `RequireAuthMiddleware` пропатчен (`_patch_auth_middleware_optional` в `auth.py`) так, что запросы без Bearer-токена проходят через middleware к MCP-обработчику. Инструменты сами проверяют `get_access_token()` через `_request` и, если токена нет, возвращают `{"error": "authorization_required", "login_url": ..., "message": ..., "how_to": ...}` dict — LLM объясняет юзеру как авторизоваться. Жёсткий 401-ответ с JSON-инструкциями **никогда не срабатывает** в обоих auth-режимах (token и oauth). Pass-through патч обязателен для code_mode/bm25 — иначе `initialize` падает на 401 и discovery недоступен.
+
+## Критично: Семантика update_conference (partial update)
+
+`update_conference` — это merge: поля, которые не переданы, не попадают в тело PATCH (`exclude_none`) и не меняются. Сервер при PATCH расписания требует **полный** набор полей для типа (`once` — start_time, time, special_time_offset, duration; `week` — плюс непустой days), неполный → 500. Поэтому два случая требуют текущего состояния конференции — **один общий `GET /conferences/{id}`** (делается только если сработал хотя бы один случай; полный запрос GET не делает):
+
+1. **`guest_rights` без `access`.** Явный `access != "public"` → немедленный `guest_rights_requires_public_access` (без сети). Если `access` не передан (включая непонятную строку — `_resolve_access` → `None`, опечатка ведёт себя как omission) → GET и проверка текущего `access`: `public` → PATCH с `rights` (без `access` в теле); `private` → та же ошибка, но с фактическим текущим access в сообщении. PATCH с `rights` на private **не улетает**: поведение сервера задокументировано негде, а молча принять права, где гостей нет, — ложь о результате.
+2. **Частичное расписание** (`once`/`week`, не хватает `duration`/`time`/`days`/`date`/`timezone`) — недостающее наследуется из текущего расписания: `duration`/`days`/`special_time_offset` как есть (не хватает `timezone` → offset берётся из `special_time_offset`); локальное `time` восстанавливается из `start_time`(UTC) + `special_time_offset` (в **ответе** `ScheduleOutput` поля `time` НЕТ, а `start_time`/`end_time` — строки формата, не зафиксированного в спеке — парсит `parse_schedule_output_time`: unix и ISO); дата первого вхождения сохраняется из `start_time` **+ `special_time_offset`** — это **локальная** дата, а не UTC-дата `start_time` (они различаются, когда локальное время старта пересекает границу UTC-суток). Для `week` время повторения берётся из time-of-day якоря (TrueConf хранит одну пару time/offset). Расписания нет (`type: none`) → наследовать нечего, стандартные required-field ошибки, PATCH не улетает.
+
+**Правило: явно переданные значения ВСЕГДА переопределяют наследуемые.** Наследование только доединяет недостающее, никогда не перетирает явный ввод (явный `timezone` побеждает наследуемый offset, явный `access` побеждает текущий статус). Это прописано в docstring `update_conference` — не ломать, когда правите merge-логику. Хелперы: `schedule_update_is_partial` / `resolve_partial_schedule` в `schedule_utils.py`.
 
 ## Добавление новых инструментов
 
@@ -199,18 +213,38 @@ openapi.yaml               # TrueConf Server API v4 (277 эндпоинтов)
 2. Создать файл в соответствующем пакете (`app/mcp/tools/conferences/`, `app/mcp/tools/transcriptions/` и т.д.)
 3. Декоратор `@mcp.tool(tags={"tag1", "tag2"})` — `mcp` импортируется из `app.mcp`
 4. API-запросы через `await _request("METHOD", "path", json=..., params=...)` (`_request` — из `app.mcp`)
-5. `_request` сам обрабатывает auth, логирование, парсинг ошибок и учёт использования
+5. `_request` сам обрабатывает auth, логирование и парсинг ошибок (единые error-dict через `make_error` из `app/mcp/errors.py`). Для бинарных endpoint'ов (ICS, CSV) — `_request_file`: возвращает MCP `File` с size-лимитом (10MB) вместо base64
 6. Импорт нового модуля в `__init__.py` пакета (например `app/mcp/tools/conferences/__init__.py`) автоматически регистрирует инструменты. Не забыть `import app.mcp.tools.<domain>` в `main.py` (или в общем `app/mcp/tools/__init__.py`)
+
+**Именование: файл vs MCP-имя инструмента.**
+- **Имя файла = API-запрос**, который инструмент оборачивает: `update_invitation.py` для
+  `PATCH /conferences/{id}/invitations/{invitation_id}`, как и соседние
+  `list_invitations.py` / `add_invitation.py` / `remove_invitation.py` / `get_invitation.py`.
+- **Функция внутри называется так же, как файл** (`update_invitation`).
+- **MCP-имя инструмента** (его видит LLM, по нему работает `search_tools`) задаётся через
+  параметр `name` декоратора, если оно должно отличаться от файла/функции:
+  ```python
+  @mcp.tool(name="update_conference_guest_display_name", tags={"invitations", "write"})
+  async def update_invitation(conference_id, invitation_id, display_name) -> dict:
+      ...
+  ```
+  Зачем: MCP-имя — это промпт для LLM. Оно должно отражать **реальную семантику** (кого можно
+  переименовать через этот endpoint), а не общее название запроса. Пример: `PATCH invitations`
+  меняет `display_name` только для гостей, поэтому MCP-имя `update_conference_guest_display_name`,
+  а не `update_invitation` — иначе LLM пытается «переименовать» зарегистрированных пользователей.
+  В `instructions.py` (примеры для `search_tools`) указывать MCP-имя, а не имя файла.
+
+**Версии API.** База по умолчанию — `/api/v4` (`TRUECONF_API_VERSION` в `app/config.py`). Для endpoint'ов, доступных только в v4.1 (TrueConf Server ≥ 5.5.6), передавай `version="v4.1"` в `_request` — он соберёт абсолютный URL. Если v4.1-запрос вернул HTTP 404, `_request` возвращает `endpoint_not_supported` dict (LLM объясняет пользователю, что сервер нужно обновить до 5.5.6+). Пример: `get_user_addressbook`.
 
 `mcp.instructions` (server-level контекст для MCP-клиента) задаётся в `apply_discovery_mode()` (`app/mcp/instructions.py`) per-режим (`STATIC_INSTRUCTIONS` / `BM25_INSTRUCTIONS` / `CODE_MODE_INSTRUCTIONS`). Вызывается из `run_server()` в `main.py`. При изменении домена (новые типы объектов) обновлять все три константы.
 
 ## Деплой
 
 - По умолчанию сервер сам терминирует TLS на 443 с self-signed сертификатом (см. раздел [TLS](#tls))
-- Caddy (`Caddyfile`) — опционально, для валидных сертификатов (Let's Encrypt); проксирует на `localhost:443` (или `--port 8443` при коллизии)
+- Caddy — опционально, для валидных сертификатов (Let's Encrypt); проксирует на `localhost:443` (или `--port 8443` при коллизии). Caddyfile в репо не коммитится
 - Альтернатива: ngrok (`ngrok http 443`) — туннелирует HTTPS с валидным сертификатом
 - Путь хранения токенов зависит от `TRUECONF_SECRET` — смена = все токены станут нечитаемыми
-- Фоновая задача `periodic_cleanup()` стартует с одного sweep при запуске, затем каждые час чистит протухшие токены без refresh_token
+- Фоновая задача `periodic_cleanup()` стартует с одного sweep при запуске, затем каждые час чистит: наши токены, достигшие `api_token_ttl`, TrueConf-токены без refresh_token и просроченные >7 дней (grace period)
 - **⚠️ Single-worker only:** `asyncio.Lock` в `TokenStore._index_lock` сериализует только в одном процессе. Multi-worker деплой (uvicorn `--workers N`) с общим filesystem — гонки на индексе (read-modify-write → потерянные токены, двойные удаления). Запускать с одним worker.
 
 ## Подключение MCP-клиентов (LM Studio, Cursor и т.д.)
@@ -305,5 +339,5 @@ NODE_TLS_REJECT_UNAUTHORIZED=0 lm-studio
 - LM Studio не поддерживает CIMD — если в metadata есть `client_id_metadata_document_supported: true`, LM Studio показывает "DCR not supported". Решение: `enable_cimd=False` в OAuthProxy
 - `MCP_BASE_URL` с `127.0.0.1` не работает для удалённых клиентов — metadata возвращает localhost URL
 - Node.js (LM Studio) не доверяет самоподписанным сертификатам — ни Caddy, ни авто-сгенерированному из [TLS](#tls). Workaround: `NODE_TLS_REJECT_UNAUTHORIZED=0` при запуске LM Studio (см. раздел выше). Для production — ngrok или Let's Encrypt.
-- ~~**CORS login loop (fixed).**~~ Исторически `_cors()` в `routes.py` возвращал `Access-Control-Allow-Origin: *` без `Access-Control-Allow-Credentials: true`. Для credentialed cross-site `fetch()` (которым является `/auth/callback` из TrueConf Server JS) браузер блокирует такой ответ и **дропает `Set-Cookie`** → `/success` не видит cookie → login loop. Фикс: `_cors()` эхит Origin из request + ставит `Allow-Credentials: true` + `Vary: Origin` (когда Origin есть); без Origin — `*` как и раньше.
-- **Login CSRF (session fixation, insider-only).** TrueConf Server не поддерживает `state` и PKCE в OAuth flow, поэтому классическая OAuth state-binding недоступна. Атакующий — легитимный пользователь TrueConf Server — может прогнать `/` flow своими кредами, перехватить `code` до consumed и доставить жертве `https://<mcp>/auth/callback?code=<attacker_code>` в течение ~60с (TTL кода). В результате MCP-клиент жертвы работает в аккаунте атакующего (видит его конференции, записи, чаты). Это session fixation, не credential theft: creds жертвы не утекают, work product жертвы оседает в аккаунте атакующего. Митигации: `mcp_token` cookie `max_age=60`, single-use, `httponly`, `samesite=none` + `secure` (None обязателен: TrueConf Server выполняет `/oauth2/authorize` через `fetch()` из JS — callback приходит как cross-site cors request, и SameSite=Lax было бы drop'нуто браузером; cookie вообще не сохранялось → /success не видел токен → login loop). Re-confirmation step (страница «Вы авторизуетесь как X. Подтвердить?» + POST с CSRF-токеном) отклонён по cost/benefit — friction на каждый легитимный логин ради узкого insider-сценария. Остаточный риск принят.
+- ~~**CORS login loop (fixed).**~~ Исторически `_cors()` в `routes.py` возвращал `Access-Control-Allow-Origin: *` без `Access-Control-Allow-Credentials: true`. Для credentialed cross-site `fetch()` (которым является `/auth/callback` из TrueConf Server JS) браузер блокирует такой ответ и **дропает `Set-Cookie`** → `/success` не видит cookie → login loop. Фикс: `_cors()` разрешает Origin только из allowlist (base URL TrueConf / `MCP_BASE_URL`) + ставит `Allow-Credentials: true` + `Vary: Origin`; без Origin — `*` как и раньше.
+- **Login CSRF (session fixation, insider-only).** TrueConf Server не поддерживает `state` и PKCE в OAuth flow, поэтому классическая OAuth state-binding недоступна. Атакующий — легитимный пользователь TrueConf Server — может прогнать `/` flow своими кредами, перехватить `code` до consumed и доставить жертве `https://<mcp>/auth/callback?code=<attacker_code>` в течение ~60с (TTL кода). В результате MCP-клиент жертвы работает в аккаунте атакующего (видит его конференции, записи, чаты). Это session fixation, не credential theft: creds жертвы не утекают, work product жертвы оседает в аккаунте атакующего. Митигации: `mcp_token` cookie `max_age=60` (держится лишь для 60-секундного ре-рендера `/success` при смене языка), `httponly`, `samesite=none` + `secure` (None обязателен: TrueConf Server выполняет `/oauth2/authorize` через `fetch()` из JS — callback приходит как cross-site cors request, и SameSite=Lax было бы drop'нуто браузером; cookie вообще не сохранялось → /success не видел токен → login loop). Re-confirmation step (страница «Вы авторизуетесь как X. Подтвердить?» + POST с CSRF-токеном) отклонён по cost/benefit — friction на каждый легитимный логин ради узкого insider-сценария. Остаточный риск принят.

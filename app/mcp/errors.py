@@ -10,12 +10,14 @@ def make_error(
     detail: str | None = None,
     message: str | None = None,
     how_to: dict[str, str] | None = None,
+    status_code: int | None = None,
 ) -> dict[str, Any]:
     """Build a consistent error dict for tool responses.
 
     Every error response has at least ``error`` (a stable code string) and
     ``message`` (human-readable). Auth-related errors also include
     ``login_url`` and ``how_to``. Network errors include ``detail``.
+    ``status_code`` (optional) carries the upstream HTTP status when known.
     """
     result: dict[str, Any] = {"error": code}
     if message is not None:
@@ -26,4 +28,6 @@ def make_error(
         result["how_to"] = how_to
     if detail is not None:
         result["detail"] = detail
+    if status_code is not None:
+        result["status_code"] = status_code
     return result

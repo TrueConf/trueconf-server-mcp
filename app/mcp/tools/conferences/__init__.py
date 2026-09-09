@@ -27,9 +27,6 @@ from app.mcp.tools.conferences import (  # noqa: E402, F401
     start_recording,
     stop_recording,
     pause_recording,
-    # ── Chat ──
-    get_chat_messages,
-    export_chat_messages,
     # ── Links & Calendar ──
     get_deeplinks,
     get_shared_links,

@@ -3,7 +3,13 @@ from unittest.mock import patch
 
 import pytest
 
-from app.config import Config, _resolve_defaults, build_config, _resolve_discovery_mode
+from app.config import (
+    Config,
+    TRUECONF_API_VERSION,
+    _resolve_defaults,
+    build_config,
+    _resolve_discovery_mode,
+)
 
 
 @pytest.mark.parametrize(
@@ -161,6 +167,17 @@ def test_build_config_tls_key_without_cert_raises():
 def test_build_config_lowercases_auth_mode():
     cfg = build_config(**_build_kwargs(auth_mode="Token"))
     assert cfg.auth_mode == "token"
+
+
+def test_config_trueconf_api_base():
+    """trueconf_api_base uses TRUECONF_API_VERSION (v4)."""
+    cfg = Config(
+        server="server.example",
+        client_id="cid",
+        secret="secret",
+    )
+    assert TRUECONF_API_VERSION == "v4"
+    assert cfg.trueconf_api_base == "https://server.example/api/v4"
 
 
 # ── _resolve_discovery_mode: shared discovery-mode resolution ────────────
