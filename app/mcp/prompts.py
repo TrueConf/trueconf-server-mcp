@@ -23,5 +23,4 @@ async def conference_help() -> str:
         "- invite_participants: Invite participants to active session\n"
         "- list_recordings / start_recording / stop_recording / pause_recording: Manage recordings\n"
         "- get_deeplinks / get_shared_links: Get conference links\n"
-        "- get_chat_messages: Read conference chat\n"
     )

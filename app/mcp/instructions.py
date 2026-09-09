@@ -4,7 +4,7 @@ transform(s).
 
 `mcp.instructions` is set by `apply_discovery_mode()` after the discovery
 mode is selected. Each mode has its own text because the gateway tools differ:
-- static: all 32 tools are visible to the client; no discovery step needed
+- static: all 31 tools are visible to the client; no discovery step needed
 - bm25:   tools are hidden behind `search_tools` / `call_tool`
 - code:    tools are hidden behind `guide` / `tags` / `search` / `get_schema` / `execute`
 
@@ -38,6 +38,18 @@ _COMMON_LANGUAGE = (
     "When possible, summarize the result of the completed action for the user.\n\n"
 )
 
+_COMMON_PARAMS_LANG = (
+    "MCP PARAMETERS RULE:\n"
+    "All MCP tool parameter names and values MUST be in English, regardless "
+    "of the user's language. Translate free-text parameter values to the "
+    "expected English format. For example, for a user request in Russian "
+    "'встреча в понедельник в 13:00' call "
+    "create_conference(conference_name='Встреча', schedule_type='once', "
+    "schedule_date='next Monday', schedule_time='13:00', ...). "
+    "Pass date/time phrases exactly as listed in the tool docstring, e.g. "
+    "'next Monday', 'this Wednesday', 'in 2 weeks', '2026-08-17'.\n\n"
+)
+
 _COMMON_GENERAL = (
     "GENERAL RULES:\n"
     "- Do not pretend that an action was completed unless a tool call succeeded.\n"
@@ -55,6 +67,7 @@ STATIC_INSTRUCTIONS = (
     + _COMMON_GENERAL
     + "- If required arguments are missing, ask the user only for the missing information.\n\n"
     + _COMMON_LANGUAGE
+    + _COMMON_PARAMS_LANG
 )
 
 
@@ -66,8 +79,9 @@ BM25_INSTRUCTIONS = (
     "TrueConf Server tools.\n\n"
     "search_tools is used to discover real available tools, for example: "
     "create_conference, get_conference, list_conferences, run_conference, "
-    "stop_conference, add_invitation, remove_invitation, update_invitation, "
-    "notify_conference, start_recording, and others.\n\n"
+    "stop_conference, add_invitation, remove_invitation, "
+    "update_conference_guest_display_name, notify_conference, "
+    "start_recording, and others.\n\n"
     "call_tool is used to execute a real tool that was found by search_tools. "
     "You must never say that you cannot create or manage conferences just because "
     "you only see search_tools and call_tool. These two tools are the correct way "
@@ -109,7 +123,7 @@ BM25_INSTRUCTIONS = (
     "Correct behavior:\n"
     "Step 1: search_tools(query='create conference')\n"
     "Step 2: If create_conference is found, call:\n"
-    "call_tool(name='create_conference', arguments={'topic': 'Тест'})\n"
+    "call_tool(name='create_conference', arguments={'conference_name': 'Тест'})\n"
     "Step 3: If the tool requires extra fields such as mode, schedule, or owner, "
     "ask only for the missing required fields.\n\n"
     "EXAMPLE — add a participant:\n"
@@ -131,7 +145,7 @@ BM25_INSTRUCTIONS = (
     + "- Do not rely on memory of previously visible tools.\n"
     "- Do not treat search_tools and call_tool as unrelated utilities.\n"
     "- search_tools and call_tool are the required gateway to the TrueConf Server API.\n"
-    "- Search first, then act.\n" + _COMMON_LANGUAGE
+    "- Search first, then act.\n" + _COMMON_LANGUAGE + _COMMON_PARAMS_LANG
 )
 
 
@@ -151,6 +165,7 @@ CODE_MODE_INSTRUCTIONS = (
     + _COMMON_AUTH
     + _COMMON_GENERAL
     + _COMMON_LANGUAGE
+    + _COMMON_PARAMS_LANG
 )
 
 
@@ -158,7 +173,7 @@ def apply_discovery_mode(config: Config) -> list:
     """Select tool discovery transform and set `mcp.instructions` accordingly.
 
     Three discovery modes:
-    - static: all 32 tools are visible to the client directly (no transform)
+    - static: all 31 tools are visible to the client directly (no transform)
     - bm25:   tools are hidden behind the `search_tools` / `call_tool` gateway
     - code:   tools are hidden behind `guide` / `tags` / `search` / `get_schema` /
               `execute` (CodeMode sandbox; progressive discovery)

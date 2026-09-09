@@ -23,7 +23,7 @@ def _patch_auth_middleware_optional() -> None:
     .. warning::
        Monkeypatches ``fastmcp.server.auth.middleware.RequireAuthMiddleware.__call__``
        on the library class — a fastmcp upgrade can break this. The project pins
-       ``fastmcp==3.4.2`` to protect the patch. Alternative: fork fastmcp or use a
+       ``fastmcp==3.4.7`` to protect the patch. Alternative: fork fastmcp or use a
        middleware wrapper.
     """
     import fastmcp.server.auth.middleware as mw

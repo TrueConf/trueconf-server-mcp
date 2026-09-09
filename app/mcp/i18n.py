@@ -23,7 +23,12 @@ COOKIE_MAX_AGE = 60 * 60 * 24 * 365  # 1 year
 
 # Matches {{ t.namespace.key }} placeholders in templates.
 _T_RE = re.compile(r"\{\{\s*t\.([a-z_]+\.[a-z_]+)\s*\}\}")
-_ACCEPT_LANG_RE = re.compile(r"([a-zA-Z]{1,8})(?:-[a-zA-Z]+)?(?:;q=([0-9.]+))?")
+# q-value is restricted to the RFC 7231 grammar (0[.0-9{1,3}] / 1[.0{1,3}]) so
+# the captured group, when present, is always a valid float — malformed values
+# like `;q=1.2.3` or `;q=.` simply don't match and are treated as "no q".
+_ACCEPT_LANG_RE = re.compile(
+    r"([a-zA-Z]{1,8})(?:-[a-zA-Z]+)?(?:;q=(0(?:\.\d{1,3})?|1(?:\.0{1,3})?))?"
+)
 
 
 def init_i18n() -> None:

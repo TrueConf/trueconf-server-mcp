@@ -1,6 +1,8 @@
 import os
 from dataclasses import dataclass
 
+TRUECONF_API_VERSION = "v4"
+
 
 def _resolve_discovery_mode(explicit: str | None, code_mode_experimental: bool) -> str:
     """Resolve discovery mode from explicit choice and the legacy alias.
@@ -116,6 +118,10 @@ class Config:
     @property
     def trueconf_base(self) -> str:
         return f"https://{self.server}"
+
+    @property
+    def trueconf_api_base(self) -> str:
+        return f"https://{self.server}/api/{TRUECONF_API_VERSION}"
 
     @property
     def login_callback_url(self) -> str:

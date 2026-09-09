@@ -1,3 +1,4 @@
+from html import escape
 from pathlib import Path
 from urllib.parse import urlencode
 
@@ -69,8 +70,8 @@ def success_page(
 ) -> HTMLResponse:
     body = _read_template("success.html")
     body = body.replace("{{ token }}", token)
-    body = body.replace("{{ name }}", name)
-    body = body.replace("{{ user_id }}", user_id)
+    body = body.replace("{{ name }}", escape(name))
+    body = body.replace("{{ user_id }}", escape(user_id))
     body = body.replace("{{ token_ttl }}", str(token_ttl))
     body = body.replace("{{ token_ttl_hours }}", str(token_ttl // 3600))
     body = body.replace("{{ base_url }}", base_url)

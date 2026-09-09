@@ -5,6 +5,7 @@ import datetime
 import logging
 import os
 import platform
+import shutil
 from ipaddress import ip_address
 from pathlib import Path
 from urllib.parse import urlparse
@@ -91,11 +92,17 @@ def ensure_self_signed_cert(
     """Return (cert_path, key_path) for a self-signed cert, generating on first use.
 
     Idempotent: if both `cert.pem` and `key.pem` already exist in `storage_dir`
-    AND the cert is valid for more than 30 days AND the key is loadable, they
-    are reused. Otherwise (missing files, expired, expiring within 30 days, SAN
-    mismatch, or corrupt/unreadable key) a new cert is generated and written.
-    The key file is written atomically (temp → chmod 0600 → replace) and with
-    restrictive permissions.
+    AND the cert is valid for more than 30 days AND the key is loadable AND the
+    key matches the cert, they are reused. Otherwise (missing files, expired,
+    expiring within 30 days, SAN mismatch, corrupt/unreadable key, or
+    key↔cert mismatch) a new cert is generated and written.
+
+    The new pair is staged in a temp subdirectory and installed with
+    os.replace, so each file lands whole or not at all; the key is created
+    with 0o600 directly so it is never world-readable, even briefly. A crash
+    between the two installs can leave a mismatched pair — the key↔cert check
+    above detects it on the next start and regenerates, so the state always
+    self-heals.
     """
     storage_dir.mkdir(parents=True, exist_ok=True)
     cert_path = storage_dir / "cert.pem"
@@ -108,24 +115,28 @@ def ensure_self_signed_cert(
             and _is_cert_valid_for(cert_path, days=30)
             and _cert_san_matches(cert_path, san_names)
             and _is_key_loadable(key_path)
+            and _key_matches_cert(cert_path, key_path)
         ):
             logger.info("Reusing self-signed cert (expires %s)", not_valid_after)
             return cert_path, key_path
         logger.info(
-            "Regenerating expired/expiring/SAN-mismatch/corrupt-key self-signed cert (was %s)",
+            "Regenerating expired/expiring/SAN-mismatch/corrupt-key/mismatched-pair self-signed cert (was %s)",
             not_valid_after,
         )
 
     logger.info("Generated self-signed cert for %s at %s", san_names, cert_path)
     cert_pem, key_pem = generate_self_signed_cert(san_names)
-    cert_path.write_bytes(cert_pem)
-    # Write key atomically: temp file → chmod 0600 → os.replace. A crash
-    # mid-write leaves either the old key or no key, never a partial key that
-    # the reuse check above would silently accept. The temp file is created
-    # with 0o600 directly (not chmod'd after) so the private key is never
-    # world-readable, even briefly.
-    tmp_key = key_path.with_suffix(".pem.tmp")
+    # Stage the pair in a temp subdirectory, then install both files with
+    # os.replace (atomic on POSIX). Each replace leaves a whole file, and a
+    # crash mid-install is recoverable by the key↔cert check on next start.
+    # The key temp file is created with 0o600 directly (not chmod'd after) so
+    # the private key is never world-readable, even briefly.
+    tmp_dir = storage_dir / ".regeneration"
+    tmp_dir.mkdir(exist_ok=True)
+    tmp_cert = tmp_dir / "cert.pem"
+    tmp_key = tmp_dir / "key.pem"
     try:
+        tmp_cert.write_bytes(cert_pem)
         fd = os.open(
             str(tmp_key),
             os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
@@ -133,9 +144,11 @@ def ensure_self_signed_cert(
         )
         with os.fdopen(fd, "wb") as f:
             f.write(key_pem)
+        os.replace(tmp_cert, cert_path)
         os.replace(tmp_key, key_path)
     finally:
-        tmp_key.unlink(missing_ok=True)
+        # Removes leftovers from a crashed staging run as well.
+        shutil.rmtree(tmp_dir, ignore_errors=True)
     return cert_path, key_path
 
 
@@ -191,6 +204,29 @@ def _is_key_loadable(key_path: Path) -> bool:
     except Exception:
         return False
     return True
+
+
+def _key_matches_cert(cert_path: Path, key_path: Path) -> bool:
+    """True if the private key at key_path corresponds to the cert at cert_path.
+
+    Guards against a mismatched pair left by a crash between the cert install
+    and the key install: the cert is valid, SAN-correct and the key is
+    loadable, yet they do not go together. Without this check the pair is
+    reused and ssl.load_cert_chain fails with KEY_VALUES_MISMATCH at startup —
+    a permanent brick, since every other reuse check keeps passing.
+    """
+    try:
+        cert = x509.load_pem_x509_certificate(cert_path.read_bytes())
+        key = serialization.load_pem_private_key(key_path.read_bytes(), password=None)
+    except Exception:
+        return False
+    cert_pub = cert.public_key()
+    key_pub = key.public_key()
+    if not (
+        isinstance(cert_pub, rsa.RSAPublicKey) and isinstance(key_pub, rsa.RSAPublicKey)
+    ):
+        return False
+    return cert_pub.public_numbers() == key_pub.public_numbers()
 
 
 def resolve_tls_files(config: Config) -> tuple[str, str] | None:

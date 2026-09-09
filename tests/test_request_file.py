@@ -80,7 +80,7 @@ async def test_request_file_401_refresh_then_retry_success(
         patch("app.mcp._try_refresh_trueconf_token", side_effect=mock_refresh),
     ):
         result = await _request_file(
-            "GET", "conferences/abc/messages-export", format="csv"
+            "GET", "conferences/abc/recordings/1/download", format="csv"
         )
     from fastmcp.utilities.types import File
 

@@ -1,7 +1,8 @@
 from typing import Any
 
 from app.mcp import mcp, _request
-from app.trueconf_api.mode_utils import _resolve_mode
+from app.mcp.errors import make_error
+from app.trueconf_api.mode_utils import _resolve_access, _resolve_mode
 from app.trueconf_api.models import ConferenceSearchFilters
 
 
@@ -27,7 +28,8 @@ async def list_conferences(
         topic: Filter by conference name
         owner: Filter by owner user_id
         state: Filter by conference state
-        access: Filter by access type (private/public)
+        access: Filter by access type (private/public, or Russian
+              'закрытая'/'открытая')
         mode: Filter by conference mode (PxP/OxP/S|L/S|L Auto or descriptions
               like 'lecture'/'лекция')
         page: Page number
@@ -39,12 +41,26 @@ async def list_conferences(
         before: Schedule timestamp before
         topic_cid_contains: Search by name or conference ID
     """
-    resolved_mode = _resolve_mode(mode) if mode is not None else None
+    try:
+        resolved_mode = _resolve_mode(mode) if mode is not None else None
+    except ValueError as e:
+        return make_error("invalid_mode", detail=str(e))
+
+    resolved_access = _resolve_access(access) if access is not None else None
+    if access is not None and resolved_access is None:
+        return make_error(
+            "invalid_access",
+            detail=(
+                f"Неизвестный тип доступа '{access}'. Допустимые значения: "
+                "'private'/'public' (или 'закрытая'/'открытая')."
+            ),
+        )
+
     params: dict[str, Any] = ConferenceSearchFilters(
         topic=topic,
         owner=owner,
         state=state,
-        access=access,
+        access=resolved_access,
         mode=resolved_mode,
         page=page,
         page_size=page_size,

@@ -23,7 +23,7 @@ def init_http_client() -> None:
     global _http_client
     cfg = get_config()
     _http_client = httpx.AsyncClient(
-        base_url=f"https://{cfg.server}/api/v4",
+        base_url=cfg.trueconf_api_base,
         verify=cfg.verify_ssl,
         timeout=cfg.http_timeout,
     )
@@ -78,13 +78,19 @@ def _handle_error(response) -> dict[str, Any]:
             return make_error(
                 str(data["error"]),
                 message=str(data.get("message", data["error"])),
+                status_code=response.status_code,
             )
-        return make_error("upstream_error", message=str(data))
+        return make_error(
+            "upstream_error",
+            message=str(data),
+            status_code=response.status_code,
+        )
     except Exception:
         body = response.text or ""
         return make_error(
             f"HTTP {response.status_code}",
             detail=body[:500],
+            status_code=response.status_code,
         )
 
 
@@ -117,13 +123,43 @@ def _token_invalid_dict() -> dict[str, Any]:
     return make_error(
         "token_invalid",
         login_url=login_url,
-        message="TrueConf token revoked. Re-authorize at login_url.",
+        message=(
+            "Your access token has expired or was revoked. Re-authorize at login_url."
+        ),
         how_to={
             "1": f"Open {login_url} in a browser",
             "2": "Authorize via TrueConf Server",
             "3": "Copy the token from the page",
             "4": "Add header: Authorization: Bearer <your_token>",
         },
+    )
+
+
+def _endpoint_not_supported_dict() -> dict[str, Any]:
+    """Return the ``endpoint_not_supported`` error for a v4.1-only endpoint.
+
+    A ``/api/v4.1/...`` request that returns HTTP 404 means the TrueConf
+    Server predates the v4.1 API (< 5.5.6). The user cannot get the address
+    book via the API on such a server, so the LLM tells them to upgrade.
+    """
+    return make_error(
+        "endpoint_not_supported",
+        message=(
+            "Your version of the server does not support retrieving the "
+            "address book via the API. Contact your administrator to upgrade "
+            "the server to version 5.5.6 or higher."
+        ),
+        how_to={
+            "1": (
+                "Tell the user that their TrueConf Server version does not "
+                "support retrieving the address book via the API"
+            ),
+            "2": (
+                "Ask the administrator to upgrade the server to version 5.5.6 or higher"
+            ),
+            "3": "Retry the request after the server is upgraded",
+        },
+        detail="HTTP 404",
     )
 
 
@@ -198,7 +234,13 @@ def _parse_response(response: httpx.Response) -> dict[str, Any]:
     return data
 
 
-async def _request(method: str, path: str, **kwargs) -> dict[str, Any]:
+async def _request(
+    method: str,
+    path: str,
+    *,
+    version: str | None = None,
+    **kwargs,
+) -> dict[str, Any]:
     """Make an authenticated request to TrueConf API.
 
     Resilience (T5):
@@ -206,10 +248,19 @@ async def _request(method: str, path: str, **kwargs) -> dict[str, Any]:
     - Upstream 401 → refresh via ``ApiTokenAuth`` (T4 per-token lock) and
       retry once; if refresh fails or the retry is still 401 → ``token_invalid``
       dict so the LLM can tell the user to re-authorize.
+
+    ``version`` (optional): API version override. When set (e.g. ``"v4.1"``),
+    the request goes to ``/api/{version}/...`` instead of the client's default
+    base URL. A ``v4.1`` request returning HTTP 404 means the server predates
+    the v4.1 API (TrueConf Server < 5.5.6) — the caller gets
+    ``endpoint_not_supported`` so the LLM can tell the user to upgrade.
     """
     token = get_access_token()
     if token is None:
         return _auth_required_dict()
+
+    if version:
+        path = f"https://{get_config().server}/api/{version}/{path.lstrip('/')}"
 
     try:
         response = await _call_trueconf(method, path, token.token, **kwargs)
@@ -233,6 +284,8 @@ async def _request(method: str, path: str, **kwargs) -> dict[str, Any]:
         if response.status_code == 401:
             return _token_invalid_dict()
 
+    if version == "v4.1" and response.status_code == 404:
+        return _endpoint_not_supported_dict()
     return _parse_response(response)
 
 

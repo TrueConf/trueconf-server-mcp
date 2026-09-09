@@ -145,6 +145,22 @@ async def test_token_invalid_includes_how_to(
     assert "message" in result
 
 
+async def test_token_invalid_message_does_not_claim_revoked(
+    mock_config_set,
+) -> None:
+    """token_invalid message must not claim the TrueConf token was revoked.
+
+    Regression: when OUR api token merely expired (api_token_ttl elapsed) and
+    the refresh path fails, the user was told "TrueConf token revoked" — the
+    TrueConf token was never revoked. The message must cover expiry too.
+    """
+    from app.mcp import _token_invalid_dict
+
+    result = _token_invalid_dict()
+    assert "TrueConf token revoked" not in result["message"]
+    assert "expired" in result["message"]
+
+
 async def test_try_refresh_exception_returns_token_invalid(
     mock_config_set,
     _patch_access_token,
@@ -203,6 +219,7 @@ def test_handle_error_non_json_includes_body_context() -> None:
     resp = httpx.Response(500, text=body, headers={"content-type": "text/html"})
     result = _handle_error(resp)
     assert result["error"] == "HTTP 500"
+    assert result["status_code"] == 500
     assert "detail" in result, "non-JSON error must include body context"
     assert "Internal Server Error" in result["detail"]
     assert len(result["detail"]) <= 500
@@ -216,4 +233,109 @@ def test_handle_error_non_json_truncates_long_body() -> None:
     resp = httpx.Response(502, text=body, headers={"content-type": "text/plain"})
     result = _handle_error(resp)
     assert result["error"] == "HTTP 502"
+    assert result["status_code"] == 502
     assert len(result["detail"]) == 500
+
+
+async def test_init_http_client_uses_v4_api_base(mock_config_set) -> None:
+    """init_http_client строит клиент на базе /api/v4 из конфига."""
+    import app.mcp
+
+    await app.mcp.close_http_client()
+    try:
+        app.mcp.init_http_client()
+        client = app.mcp.get_http_client()
+        assert str(client.base_url) == "https://server.example/api/v4/"
+    finally:
+        await app.mcp.close_http_client()
+
+
+async def test_request_version_override_builds_v4_1_url(
+    mock_config_set, _patch_access_token
+) -> None:
+    """_request with version='v4.1' targets the v4.1 API base as an absolute URL."""
+    captured: dict = {}
+
+    async def _capture(method, path, token, **kwargs):
+        captured["path"] = path
+        return httpx.Response(200, json={})
+
+    with patch("app.mcp._call_trueconf", side_effect=_capture):
+        await _request("GET", "users/user-1/addressbook", version="v4.1")
+
+    assert (
+        captured["path"] == "https://server.example/api/v4.1/users/user-1/addressbook"
+    )
+
+
+async def test_request_v4_1_404_returns_endpoint_not_supported(
+    mock_config_set, _patch_access_token
+) -> None:
+    """A v4.1 request returning 404 → endpoint_not_supported (server < 5.5.6)."""
+    resp_404 = httpx.Response(
+        404,
+        json={
+            "error": {
+                "code": 404,
+                "message": "Not Found",
+                "trace_id": "3904405107",
+                "errors": [{"reason": "routeNotFound"}],
+            }
+        },
+    )
+    with patch("app.mcp._call_trueconf", side_effect=AsyncMock(return_value=resp_404)):
+        result = await _request("GET", "users/user-1/addressbook", version="v4.1")
+
+    assert result["error"] == "endpoint_not_supported"
+    assert result["detail"] == "HTTP 404"
+    assert "5.5.6" in result["message"]
+    assert "how_to" in result
+
+
+async def test_request_404_without_version_returns_normal_error(
+    mock_config_set, _patch_access_token
+) -> None:
+    """A plain 404 (no version override) keeps the normal error handling."""
+    resp_404 = httpx.Response(
+        404,
+        json={
+            "error": {
+                "code": 404,
+                "message": "Not Found",
+                "errors": [{"reason": "routeNotFound"}],
+            }
+        },
+    )
+    with patch("app.mcp._call_trueconf", side_effect=AsyncMock(return_value=resp_404)):
+        result = await _request("GET", "conferences/nope")
+
+    assert result["error"] != "endpoint_not_supported"
+    assert "how_to" not in result
+
+
+async def test_request_v4_1_404_after_401_retry_returns_endpoint_not_supported(
+    mock_config_set, _patch_access_token
+) -> None:
+    """401 → refresh → retry returns 404 → still endpoint_not_supported."""
+    resp_401 = httpx.Response(401, json={"error": "unauthorized"})
+    resp_404 = httpx.Response(
+        404,
+        json={
+            "error": {
+                "code": 404,
+                "message": "Not Found",
+                "errors": [{"reason": "routeNotFound"}],
+            }
+        },
+    )
+    mock_call = AsyncMock(side_effect=[resp_401, resp_404])
+    mock_refresh = AsyncMock(return_value="tc-new-token")
+
+    with (
+        patch("app.mcp._call_trueconf", side_effect=mock_call),
+        patch("app.mcp._try_refresh_trueconf_token", side_effect=mock_refresh),
+    ):
+        result = await _request("GET", "users/user-1/addressbook", version="v4.1")
+
+    assert result["error"] == "endpoint_not_supported"
+    assert mock_call.await_count == 2

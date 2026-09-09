@@ -56,6 +56,31 @@ def test_error_page_falls_back_when_no_code(_init_i18n):
     assert "Something went wrong" in body
 
 
+def test_success_page_escapes_profile_fields(_init_i18n):
+    """name/user_id from the TrueConf profile must be HTML-escaped (self-XSS).
+
+    /success carries a fresh MCP token in the same DOM; a profile field
+    containing markup must not become executable script.
+    """
+    from app.mcp.pages import success_page
+
+    html_response = success_page(
+        token="tok",
+        name="<script>steal()</script>",
+        user_id='"><img src=x onerror=steal()>',
+        token_ttl=3600,
+        base_url="https://localhost",
+        lang="en",
+        query_params={},
+        server_url="https://server.example",
+    )
+    body = html_response.body.decode()
+    assert "<script>steal()" not in body
+    assert "&lt;script&gt;steal()&lt;/script&gt;" in body
+    assert '"><img' not in body
+    assert "&quot;&gt;&lt;img" in body
+
+
 async def test_handle_login_callback_sets_cookie(
     mock_config_set, mock_token_store
 ) -> None:
@@ -78,9 +103,7 @@ async def test_handle_login_callback_sets_cookie(
     mock_http_client = AsyncMock()
     mock_http_client.post = AsyncMock(return_value=token_resp)
     mock_http_client.get = AsyncMock(
-        return_value=httpx.Response(
-            200, json={"user": {"display_name": "Alice Smith"}}
-        )
+        return_value=httpx.Response(200, json={"user": {"display_name": "Alice Smith"}})
     )
 
     request = FakeRequest(query_params={"code": "test-code"})
