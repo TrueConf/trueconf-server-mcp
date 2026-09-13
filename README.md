@@ -1,8 +1,8 @@
 <p align="center">
   <a href="https://trueconf.com" target="_blank" rel="noopener noreferrer">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/TrueConf/.github/refs/heads/main/logos/logo-cyrillic-dark.svg">
-      <img width="150" alt="TrueConf" src="https://raw.githubusercontent.com/TrueConf/.github/refs/heads/main/logos/logo-cyrillic.svg">
+      <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/TrueConf/.github/refs/heads/main/logos/logo-dark.svg">
+      <img width="150" alt="TrueConf" src="https://raw.githubusercontent.com/TrueConf/.github/refs/heads/main/logos/logo.svg">
     </picture>
   </a>
 </p>
@@ -12,9 +12,24 @@
 <p align="center">Manage TrueConf Server conferences, recordings, and invitations from any MCP client, including LM Studio, Cursor, Claude Desktop, and others.</p>
 
 <p align="center">
-  <a href="https://pypi.org/project/trueconf-server-mcp" target="_blank">
-    <img alt="PyPI - Version" src="https://img.shields.io/pypi/v/trueconf-server-mcp?label=trueconf-server-mcp">
-  </a>
+    <a href="https://pypi.org/project/trueconf-server-mcp">
+        <img src="https://img.shields.io/pypi/v/trueconf-server-mcp">
+    </a>
+    <a href="https://pypi.org/project/trueconf-server-mcp">
+        <img src="https://img.shields.io/pypi/pyversions/trueconf-server-mcp">
+    </a>
+    <a href="https://pypi.org/project/trueconf-server-mcp">
+        <img src="https://static.pepy.tech/personalized-badge/trueconf-server-mcp?period=total&units=NONE&left_color=GREY&right_color=BRIGHTGREEN&left_text=Downloads" alt="PyPI Downloads">
+    </a>
+    <a href="https://t.me/trueconf_chat" target="_blank">
+        <img src="https://img.shields.io/badge/Telegram-2CA5E0?logo=telegram&logoColor=white" />
+    </a>
+    <a href="https://discord.gg/2gJ4VUqATZ">
+        <img src="https://img.shields.io/badge/Discord-%235865F2.svg?&logo=discord&logoColor=white" />
+    </a>
+    <a href="#">
+        <img src="https://img.shields.io/github/stars/trueconf/trueconf-server-mcp?style=social" />
+    </a>
 </p>
 
 <p align="center">

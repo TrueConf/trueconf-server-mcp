@@ -12,9 +12,21 @@
 <p align="center">Управляйте конференциями, записями и приглашениями TrueConf Server через любой MCP-клиент — LM Studio, Cursor, Claude Desktop и другие.</p>
 
 <p align="center">
-  <a href="https://pypi.org/project/trueconf-server-mcp" target="_blank">
-    <img alt="PyPI - Version" src="https://img.shields.io/pypi/v/trueconf-server-mcp?label=trueconf-server-mcp">
-  </a>
+    <a href="https://pypi.org/project/trueconf-server-mcp">
+        <img src="https://img.shields.io/pypi/v/trueconf-server-mcp">
+    </a>
+    <a href="https://pypi.org/project/trueconf-server-mcp">
+        <img src="https://img.shields.io/pypi/pyversions/trueconf-server-mcp">
+    </a>
+    <a href="https://pypi.org/project/trueconf-server-mcp">
+        <img src="https://static.pepy.tech/personalized-badge/trueconf-server-mcp?period=total&units=NONE&left_color=GREY&right_color=BRIGHTGREEN&left_text=Downloads" alt="PyPI Downloads">
+    </a>
+    <a href="https://t.me/trueconf_talks" target="_blank">
+        <img src="https://img.shields.io/badge/Telegram-2CA5E0?logo=telegram&logoColor=white" />
+    </a>
+    <a href="#">
+        <img src="https://img.shields.io/github/stars/trueconf/trueconf-server-mcp?style=social" />
+    </a>
 </p>
 
 <p align="center">
