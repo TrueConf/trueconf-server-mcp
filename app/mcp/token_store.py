@@ -6,18 +6,18 @@ import logging
 import secrets
 import time
 
+from cryptography.fernet import Fernet
 from fastmcp import settings
 from fastmcp.server.auth.jwt_issuer import derive_jwt_key
-from cryptography.fernet import Fernet
-from pydantic import BaseModel
-from key_value.aio.protocols import AsyncKeyValue
 from key_value.aio.adapters.pydantic import PydanticAdapter
+from key_value.aio.protocols import AsyncKeyValue
 from key_value.aio.stores.filetree import (
     FileTreeStore,
     FileTreeV1CollectionSanitizationStrategy,
     FileTreeV1KeySanitizationStrategy,
 )
 from key_value.aio.wrappers.encryption import FernetEncryptionWrapper
+from pydantic import BaseModel
 
 from app.config import Config
 from app.mcp.logging_utils import mask_token
@@ -69,9 +69,7 @@ class TokenStore:
     _INDEX_KEY = "__token_index__"
     _TC_INDEX_KEY = "__tc_token_index__"
 
-    def __init__(
-        self, client_storage: AsyncKeyValue, api_token_ttl: int = 86400
-    ) -> None:
+    def __init__(self, client_storage: AsyncKeyValue, api_token_ttl: int = 86400) -> None:
         self.api_token_ttl = api_token_ttl
         self._store: PydanticAdapter[ApiToken] = PydanticAdapter(
             key_value=client_storage,
@@ -144,9 +142,7 @@ class TokenStore:
             await self._save_tc_index(tc_index)
             await self._store.put(key=token, value=api_token)
 
-        logger.info(
-            "Created API token for user=%s token=%s", user_id, mask_token(token)
-        )
+        logger.info("Created API token for user=%s token=%s", user_id, mask_token(token))
         return api_token
 
     async def get_by_token(self, token: str) -> ApiToken | None:
@@ -221,12 +217,8 @@ class TokenStore:
 
             for t in all_tokens:
                 own_expired = t.expires_at <= now
-                tc_expired = (
-                    t.trueconf_expires_at <= now and not t.trueconf_refresh_token
-                )
-                tc_revoked = (
-                    t.trueconf_refresh_token and t.trueconf_expires_at < now - grace
-                )
+                tc_expired = t.trueconf_expires_at <= now and not t.trueconf_refresh_token
+                tc_revoked = t.trueconf_refresh_token and t.trueconf_expires_at < now - grace
                 if own_expired or tc_expired or tc_revoked:
                     to_delete.add(t.token)
 
@@ -234,16 +226,12 @@ class TokenStore:
                 for key in to_delete:
                     await self._store.delete(key=key)
             # Build a set of TC access tokens to remove from the secondary index.
-            tc_to_remove = {
-                t.trueconf_access_token for t in all_tokens if t.token in to_delete
-            }
+            tc_to_remove = {t.trueconf_access_token for t in all_tokens if t.token in to_delete}
             index = await self._get_index()
             # Remove expired tokens AND stale entries (no record file).
             records = await self._store.get_many(keys=index.tokens)
             surviving_keys = {
-                k
-                for k, r in zip(index.tokens, records)
-                if r is not None and k not in to_delete
+                k for k, r in zip(index.tokens, records, strict=False) if r is not None and k not in to_delete
             }
             index.tokens = list(surviving_keys)
             await self._save_index(index)
@@ -281,9 +269,7 @@ def init_token_store(config: Config) -> TokenStore:
     _file_store = FileTreeStore(
         data_directory=_storage_dir,
         key_sanitization_strategy=FileTreeV1KeySanitizationStrategy(_storage_dir),
-        collection_sanitization_strategy=FileTreeV1CollectionSanitizationStrategy(
-            _storage_dir
-        ),
+        collection_sanitization_strategy=FileTreeV1CollectionSanitizationStrategy(_storage_dir),
     )
     client_storage = FernetEncryptionWrapper(
         key_value=_file_store,

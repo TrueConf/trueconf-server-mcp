@@ -9,14 +9,15 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from unittest.mock import patch
+
 from fastmcp.server.auth import AccessToken
 
-from app.mcp.tools.conferences.add_invitation import add_invitation
-from app.mcp.tools.conferences.create_conference import create_conference
-from app.mcp.tools.conferences.list_conferences import list_conferences
-from app.mcp.tools.conferences.update_conference import update_conference
-from app.mcp.tools.conferences.update_invitation import update_invitation
-from app.mcp.tools.users.get_user_addressbook import get_user_addressbook
+from app.mcp.tools.trueconf_server.conferences.add_invitation import add_invitation
+from app.mcp.tools.trueconf_server.conferences.create_conference import create_conference
+from app.mcp.tools.trueconf_server.conferences.list_conferences import list_conferences
+from app.mcp.tools.trueconf_server.conferences.update_conference import update_conference
+from app.mcp.tools.trueconf_server.conferences.update_invitation import update_invitation
+from app.mcp.tools.trueconf_server.users.get_user_addressbook import get_user_addressbook
 
 
 def _mock_access_token():
@@ -37,17 +38,15 @@ async def test_create_conference_normalizes_access_ru(
 
     with (
         patch(
-            "app.mcp.tools.conferences.create_conference.get_access_token",
+            "app.mcp.tools.trueconf_server.conferences.create_conference.get_access_token",
             return_value=_mock_access_token(),
         ),
         patch(
-            "app.mcp.tools.conferences.create_conference._request",
+            "app.mcp.tools.trueconf_server.conferences.create_conference._request",
             side_effect=_capture,
         ),
     ):
-        await create_conference(
-            conference_name="Test", mode="лекция", access="закрытая"
-        )
+        await create_conference(conference_name="Test", mode="лекция", access="закрытая")
 
     assert captured["json"]["access"] == "private"
     assert captured["json"]["mode"] == "OxP"
@@ -62,7 +61,7 @@ async def test_list_conferences_normalizes_mode(mock_config_set) -> None:
         return {"conferences": []}
 
     with patch(
-        "app.mcp.tools.conferences.list_conferences._request",
+        "app.mcp.tools.trueconf_server.conferences.list_conferences._request",
         side_effect=_capture,
     ):
         await list_conferences(mode="лекция")
@@ -82,7 +81,7 @@ async def test_list_conferences_invalid_mode_returns_error(
         return {"conferences": []}
 
     with patch(
-        "app.mcp.tools.conferences.list_conferences._request",
+        "app.mcp.tools.trueconf_server.conferences.list_conferences._request",
         side_effect=_capture,
     ):
         result = await list_conferences(mode="bogus-mode")
@@ -104,7 +103,7 @@ async def test_list_conferences_normalizes_access(mock_config_set) -> None:
         return {"conferences": []}
 
     with patch(
-        "app.mcp.tools.conferences.list_conferences._request",
+        "app.mcp.tools.trueconf_server.conferences.list_conferences._request",
         side_effect=_capture,
     ):
         await list_conferences(access="открытая")
@@ -124,7 +123,7 @@ async def test_list_conferences_invalid_access_returns_error(
         return {"conferences": []}
 
     with patch(
-        "app.mcp.tools.conferences.list_conferences._request",
+        "app.mcp.tools.trueconf_server.conferences.list_conferences._request",
         side_effect=_capture,
     ):
         result = await list_conferences(access="bogus-access")
@@ -140,11 +139,11 @@ async def test_create_conference_invalid_invitation_returns_error(
     human-readable instruction instead of raw pydantic errors."""
     with (
         patch(
-            "app.mcp.tools.conferences.create_conference.get_access_token",
+            "app.mcp.tools.trueconf_server.conferences.create_conference.get_access_token",
             return_value=_mock_access_token(),
         ),
         patch(
-            "app.mcp.tools.conferences.create_conference._request",
+            "app.mcp.tools.trueconf_server.conferences.create_conference._request",
             return_value={"id": "conf-1"},
         ),
     ):
@@ -157,9 +156,7 @@ async def test_create_conference_invalid_invitation_returns_error(
     assert "error" in result
     assert result["error"] == "invalid_invitation"
     assert "id" in result.get("message", "")
-    assert "кавычек" in result.get("message", "") or "quotes" in result.get(
-        "message", ""
-    )
+    assert "кавычек" in result.get("message", "") or "quotes" in result.get("message", "")
     # raw pydantic errors must NOT leak into the message
     assert "pydantic" not in result.get("message", "").lower()
     assert "Field required" not in result.get("message", "")
@@ -171,20 +168,18 @@ async def test_create_conference_invalid_invitation_other_error_keeps_detail(
     """Non-missing-id pydantic errors still include the raw validation detail."""
     with (
         patch(
-            "app.mcp.tools.conferences.create_conference.get_access_token",
+            "app.mcp.tools.trueconf_server.conferences.create_conference.get_access_token",
             return_value=_mock_access_token(),
         ),
         patch(
-            "app.mcp.tools.conferences.create_conference._request",
+            "app.mcp.tools.trueconf_server.conferences.create_conference._request",
             return_value={"id": "conf-1"},
         ),
     ):
         result = await create_conference(
             conference_name="Test",
             mode="PxP",
-            invitations=[
-                {"id": "u1", "is_moderator": "not-a-bool"}
-            ],  # wrong type, not missing id
+            invitations=[{"id": "u1", "is_moderator": "not-a-bool"}],  # wrong type, not missing id
         )
     assert isinstance(result, dict)
     assert result["error"] == "invalid_invitation"
@@ -202,11 +197,11 @@ async def test_create_conference_valid_invitations_passes(mock_config_set) -> No
 
     with (
         patch(
-            "app.mcp.tools.conferences.create_conference.get_access_token",
+            "app.mcp.tools.trueconf_server.conferences.create_conference.get_access_token",
             return_value=_mock_access_token(),
         ),
         patch(
-            "app.mcp.tools.conferences.create_conference._request",
+            "app.mcp.tools.trueconf_server.conferences.create_conference._request",
             side_effect=_capture,
         ),
     ):
@@ -231,11 +226,11 @@ async def test_create_conference_maps_name_to_topic(mock_config_set) -> None:
 
     with (
         patch(
-            "app.mcp.tools.conferences.create_conference.get_access_token",
+            "app.mcp.tools.trueconf_server.conferences.create_conference.get_access_token",
             return_value=_mock_access_token(),
         ),
         patch(
-            "app.mcp.tools.conferences.create_conference._request",
+            "app.mcp.tools.trueconf_server.conferences.create_conference._request",
             side_effect=_capture,
         ),
     ):
@@ -250,11 +245,11 @@ async def test_create_conference_no_owner_no_token_returns_auth_error(
     """No owner + no token → consistent authorization_required error shape."""
     with (
         patch(
-            "app.mcp.tools.conferences.create_conference.get_access_token",
+            "app.mcp.tools.trueconf_server.conferences.create_conference.get_access_token",
             return_value=None,
         ),
         patch(
-            "app.mcp.tools.conferences.create_conference._request",
+            "app.mcp.tools.trueconf_server.conferences.create_conference._request",
             return_value={"id": "conf-1"},
         ),
     ):
@@ -280,11 +275,11 @@ async def test_create_conference_once_schedule_sends_start_time(
 
     with (
         patch(
-            "app.mcp.tools.conferences.create_conference.get_access_token",
+            "app.mcp.tools.trueconf_server.conferences.create_conference.get_access_token",
             return_value=_mock_access_token(),
         ),
         patch(
-            "app.mcp.tools.conferences.create_conference._request",
+            "app.mcp.tools.trueconf_server.conferences.create_conference._request",
             side_effect=_capture,
         ),
     ):
@@ -301,9 +296,7 @@ async def test_create_conference_once_schedule_sends_start_time(
     schedule = captured["json"]["schedule"]
     assert schedule["type"] == "once"
     # 2026-08-17 13:00 MSK (+3) = 2026-08-17 10:00 UTC
-    assert schedule["start_time"] == int(
-        datetime(2026, 8, 17, 10, 0, tzinfo=timezone.utc).timestamp()
-    )
+    assert schedule["start_time"] == int(datetime(2026, 8, 17, 10, 0, tzinfo=timezone.utc).timestamp())
     assert schedule["time"] == "10:00"
     assert schedule["duration"] == 3600
     assert schedule["special_time_offset"] == 180
@@ -321,11 +314,11 @@ async def test_create_conference_once_iana_timezone_resolves_offset(
 
     with (
         patch(
-            "app.mcp.tools.conferences.create_conference.get_access_token",
+            "app.mcp.tools.trueconf_server.conferences.create_conference.get_access_token",
             return_value=_mock_access_token(),
         ),
         patch(
-            "app.mcp.tools.conferences.create_conference._request",
+            "app.mcp.tools.trueconf_server.conferences.create_conference._request",
             side_effect=_capture,
         ),
     ):
@@ -356,11 +349,11 @@ async def test_create_conference_week_schedule_sends_days_and_time(
 
     with (
         patch(
-            "app.mcp.tools.conferences.create_conference.get_access_token",
+            "app.mcp.tools.trueconf_server.conferences.create_conference.get_access_token",
             return_value=_mock_access_token(),
         ),
         patch(
-            "app.mcp.tools.conferences.create_conference._request",
+            "app.mcp.tools.trueconf_server.conferences.create_conference._request",
             side_effect=_capture,
         ),
     ):
@@ -395,11 +388,11 @@ async def test_create_conference_scheduled_without_timezone_returns_error(
 
     with (
         patch(
-            "app.mcp.tools.conferences.create_conference.get_access_token",
+            "app.mcp.tools.trueconf_server.conferences.create_conference.get_access_token",
             return_value=_mock_access_token(),
         ),
         patch(
-            "app.mcp.tools.conferences.create_conference._request",
+            "app.mcp.tools.trueconf_server.conferences.create_conference._request",
             side_effect=_capture,
         ),
     ):
@@ -429,11 +422,11 @@ async def test_create_conference_invalid_timezone_returns_error(
 
     with (
         patch(
-            "app.mcp.tools.conferences.create_conference.get_access_token",
+            "app.mcp.tools.trueconf_server.conferences.create_conference.get_access_token",
             return_value=_mock_access_token(),
         ),
         patch(
-            "app.mcp.tools.conferences.create_conference._request",
+            "app.mcp.tools.trueconf_server.conferences.create_conference._request",
             side_effect=_capture,
         ),
     ):
@@ -464,7 +457,7 @@ async def test_update_conference_schedule_with_timezone_sends_offset(
         return {"status": "success"}
 
     with patch(
-        "app.mcp.tools.conferences.update_conference._request",
+        "app.mcp.tools.trueconf_server.conferences.update_conference._request",
         side_effect=_capture,
     ):
         await update_conference(
@@ -479,9 +472,7 @@ async def test_update_conference_schedule_with_timezone_sends_offset(
     assert captured["method"] == "PATCH"
     schedule = captured["json"]["schedule"]
     assert schedule["type"] == "once"
-    assert schedule["start_time"] == int(
-        datetime(2026, 8, 17, 10, 0, tzinfo=timezone.utc).timestamp()
-    )
+    assert schedule["start_time"] == int(datetime(2026, 8, 17, 10, 0, tzinfo=timezone.utc).timestamp())
     assert schedule["special_time_offset"] == 180
 
 
@@ -497,7 +488,7 @@ async def test_update_conference_schedule_without_timezone_returns_error(
         return {"status": "success"}
 
     with patch(
-        "app.mcp.tools.conferences.update_conference._request",
+        "app.mcp.tools.trueconf_server.conferences.update_conference._request",
         side_effect=_capture,
     ):
         result = await update_conference(
@@ -525,11 +516,11 @@ async def test_create_conference_invalid_schedule_days_returns_error(
 
     with (
         patch(
-            "app.mcp.tools.conferences.create_conference.get_access_token",
+            "app.mcp.tools.trueconf_server.conferences.create_conference.get_access_token",
             return_value=_mock_access_token(),
         ),
         patch(
-            "app.mcp.tools.conferences.create_conference._request",
+            "app.mcp.tools.trueconf_server.conferences.create_conference._request",
             side_effect=_capture,
         ),
     ):
@@ -558,7 +549,7 @@ async def test_update_conference_days_without_type_returns_error(
         return {"status": "success"}
 
     with patch(
-        "app.mcp.tools.conferences.update_conference._request",
+        "app.mcp.tools.trueconf_server.conferences.update_conference._request",
         side_effect=_capture,
     ):
         result = await update_conference(
@@ -581,11 +572,11 @@ async def test_create_conference_uses_relative_weekday_phrase(mock_config_set):
 
     with (
         patch(
-            "app.mcp.tools.conferences.create_conference.get_access_token",
+            "app.mcp.tools.trueconf_server.conferences.create_conference.get_access_token",
             return_value=_mock_access_token(),
         ),
         patch(
-            "app.mcp.tools.conferences.create_conference._request",
+            "app.mcp.tools.trueconf_server.conferences.create_conference._request",
             side_effect=_capture,
         ),
     ):
@@ -615,11 +606,11 @@ async def test_create_conference_once_without_date_returns_error(
 
     with (
         patch(
-            "app.mcp.tools.conferences.create_conference.get_access_token",
+            "app.mcp.tools.trueconf_server.conferences.create_conference.get_access_token",
             return_value=_mock_access_token(),
         ),
         patch(
-            "app.mcp.tools.conferences.create_conference._request",
+            "app.mcp.tools.trueconf_server.conferences.create_conference._request",
             side_effect=_capture,
         ),
     ):
@@ -647,11 +638,11 @@ async def test_create_conference_once_without_time_returns_error(
 
     with (
         patch(
-            "app.mcp.tools.conferences.create_conference.get_access_token",
+            "app.mcp.tools.trueconf_server.conferences.create_conference.get_access_token",
             return_value=_mock_access_token(),
         ),
         patch(
-            "app.mcp.tools.conferences.create_conference._request",
+            "app.mcp.tools.trueconf_server.conferences.create_conference._request",
             side_effect=_capture,
         ),
     ):
@@ -676,7 +667,7 @@ async def test_update_conference_maps_name_to_topic(mock_config_set) -> None:
         return {"status": "success"}
 
     with patch(
-        "app.mcp.tools.conferences.update_conference._request",
+        "app.mcp.tools.trueconf_server.conferences.update_conference._request",
         side_effect=_capture,
     ):
         await update_conference("conf-1", conference_name="New Topic")
@@ -693,7 +684,7 @@ async def test_update_conference_no_schedule_excludes_it(mock_config_set) -> Non
         return {"status": "success"}
 
     with patch(
-        "app.mcp.tools.conferences.update_conference._request",
+        "app.mcp.tools.trueconf_server.conferences.update_conference._request",
         side_effect=_capture,
     ):
         await update_conference("conf-1", conference_name="New Topic")
@@ -715,7 +706,7 @@ async def test_update_conference_schedule_type_none_clears_schedule(
         return {"status": "success"}
 
     with patch(
-        "app.mcp.tools.conferences.update_conference._request",
+        "app.mcp.tools.trueconf_server.conferences.update_conference._request",
         side_effect=_capture,
     ):
         result = await update_conference("conf-1", schedule_type="none")
@@ -736,7 +727,7 @@ async def test_update_conference_schedule_type_none_with_fields_returns_error(
         return {"status": "success"}
 
     with patch(
-        "app.mcp.tools.conferences.update_conference._request",
+        "app.mcp.tools.trueconf_server.conferences.update_conference._request",
         side_effect=_capture,
     ):
         result = await update_conference(
@@ -765,11 +756,11 @@ async def test_get_user_addressbook_builds_path_and_params(mock_config_set) -> N
 
     with (
         patch(
-            "app.mcp.tools.users.get_user_addressbook.get_access_token",
+            "app.mcp.tools.trueconf_server.users.get_user_addressbook.get_access_token",
             return_value=_mock_access_token(),
         ),
         patch(
-            "app.mcp.tools.users.get_user_addressbook._request",
+            "app.mcp.tools.trueconf_server.users.get_user_addressbook._request",
             side_effect=_capture,
         ),
     ):
@@ -796,11 +787,11 @@ async def test_get_user_addressbook_omits_none_params(mock_config_set) -> None:
 
     with (
         patch(
-            "app.mcp.tools.users.get_user_addressbook.get_access_token",
+            "app.mcp.tools.trueconf_server.users.get_user_addressbook.get_access_token",
             return_value=_mock_access_token(),
         ),
         patch(
-            "app.mcp.tools.users.get_user_addressbook._request",
+            "app.mcp.tools.trueconf_server.users.get_user_addressbook._request",
             side_effect=_capture,
         ),
     ):
@@ -822,11 +813,11 @@ async def test_get_user_addressbook_no_token_returns_auth_error(
 
     with (
         patch(
-            "app.mcp.tools.users.get_user_addressbook.get_access_token",
+            "app.mcp.tools.trueconf_server.users.get_user_addressbook.get_access_token",
             return_value=None,
         ),
         patch(
-            "app.mcp.tools.users.get_user_addressbook._request",
+            "app.mcp.tools.trueconf_server.users.get_user_addressbook._request",
             side_effect=_capture,
         ),
     ):
@@ -849,11 +840,11 @@ async def test_get_user_addressbook_single_word_still_works(mock_config_set) -> 
 
     with (
         patch(
-            "app.mcp.tools.users.get_user_addressbook.get_access_token",
+            "app.mcp.tools.trueconf_server.users.get_user_addressbook.get_access_token",
             return_value=_mock_access_token(),
         ),
         patch(
-            "app.mcp.tools.users.get_user_addressbook._request",
+            "app.mcp.tools.trueconf_server.users.get_user_addressbook._request",
             side_effect=_capture,
         ),
     ):
@@ -889,18 +880,18 @@ async def test_get_user_addressbook_multiword_intersects(mock_config_set) -> Non
 
     with (
         patch(
-            "app.mcp.tools.users.get_user_addressbook.get_access_token",
+            "app.mcp.tools.trueconf_server.users.get_user_addressbook.get_access_token",
             return_value=_mock_access_token(),
         ),
         patch(
-            "app.mcp.tools.users.get_user_addressbook._request",
+            "app.mcp.tools.trueconf_server.users.get_user_addressbook._request",
             side_effect=_capture,
         ),
     ):
         result = await get_user_addressbook(search="Алиса Лесова")
 
     assert result == {
-        "contacts": [{"id": "elisa", "display_name": "Алиса Лесова"}],
+        "contacts": [{"id": "elisa", "display_name": "Алиса Лесова", "user_id": "elisa"}],
         "next_page_id": -1,
     }
     assert list(by_word.keys()) == ["Алиса", "Лесова"]
@@ -922,11 +913,11 @@ async def test_get_user_addressbook_multiword_paginates(mock_config_set) -> None
 
     with (
         patch(
-            "app.mcp.tools.users.get_user_addressbook.get_access_token",
+            "app.mcp.tools.trueconf_server.users.get_user_addressbook.get_access_token",
             return_value=_mock_access_token(),
         ),
         patch(
-            "app.mcp.tools.users.get_user_addressbook._request",
+            "app.mcp.tools.trueconf_server.users.get_user_addressbook._request",
             side_effect=_capture,
         ),
     ):
@@ -937,7 +928,8 @@ async def test_get_user_addressbook_multiword_paginates(mock_config_set) -> None
     # per-word pagination: page_id passed for the second page
     assert call_params[1]["page_id"] == 2
     # every per-word request goes to the v4.1 addressbook endpoint
-    assert versions and all(v == "v4.1" for v in versions)
+    assert versions
+    assert all(v == "v4.1" for v in versions)
 
 
 # ── Guest rights ───────────────────────────────────────────────────────
@@ -953,11 +945,11 @@ async def test_create_conference_guest_rights_requires_public(mock_config_set) -
 
     with (
         patch(
-            "app.mcp.tools.conferences.create_conference.get_access_token",
+            "app.mcp.tools.trueconf_server.conferences.create_conference.get_access_token",
             return_value=_mock_access_token(),
         ),
         patch(
-            "app.mcp.tools.conferences.create_conference._request",
+            "app.mcp.tools.trueconf_server.conferences.create_conference._request",
             side_effect=_capture,
         ),
     ):
@@ -984,11 +976,11 @@ async def test_create_conference_guest_rights_with_public_sends_rights(
 
     with (
         patch(
-            "app.mcp.tools.conferences.create_conference.get_access_token",
+            "app.mcp.tools.trueconf_server.conferences.create_conference.get_access_token",
             return_value=_mock_access_token(),
         ),
         patch(
-            "app.mcp.tools.conferences.create_conference._request",
+            "app.mcp.tools.trueconf_server.conferences.create_conference._request",
             side_effect=_capture,
         ),
     ):
@@ -1018,11 +1010,11 @@ async def test_create_conference_registration_enabled_sends_registration(
 
     with (
         patch(
-            "app.mcp.tools.conferences.create_conference.get_access_token",
+            "app.mcp.tools.trueconf_server.conferences.create_conference.get_access_token",
             return_value=_mock_access_token(),
         ),
         patch(
-            "app.mcp.tools.conferences.create_conference._request",
+            "app.mcp.tools.trueconf_server.conferences.create_conference._request",
             side_effect=_capture,
         ),
     ):
@@ -1048,11 +1040,11 @@ async def test_create_conference_registration_with_window_and_limit(
 
     with (
         patch(
-            "app.mcp.tools.conferences.create_conference.get_access_token",
+            "app.mcp.tools.trueconf_server.conferences.create_conference.get_access_token",
             return_value=_mock_access_token(),
         ),
         patch(
-            "app.mcp.tools.conferences.create_conference._request",
+            "app.mcp.tools.trueconf_server.conferences.create_conference._request",
             side_effect=_capture,
         ),
     ):
@@ -1087,11 +1079,11 @@ async def test_create_conference_registration_fields_without_enabled_error(
 
     with (
         patch(
-            "app.mcp.tools.conferences.create_conference.get_access_token",
+            "app.mcp.tools.trueconf_server.conferences.create_conference.get_access_token",
             return_value=_mock_access_token(),
         ),
         patch(
-            "app.mcp.tools.conferences.create_conference._request",
+            "app.mcp.tools.trueconf_server.conferences.create_conference._request",
             side_effect=_capture,
         ),
     ):
@@ -1118,11 +1110,11 @@ async def test_create_conference_without_registration_omits_field(
 
     with (
         patch(
-            "app.mcp.tools.conferences.create_conference.get_access_token",
+            "app.mcp.tools.trueconf_server.conferences.create_conference.get_access_token",
             return_value=_mock_access_token(),
         ),
         patch(
-            "app.mcp.tools.conferences.create_conference._request",
+            "app.mcp.tools.trueconf_server.conferences.create_conference._request",
             side_effect=_capture,
         ),
     ):
@@ -1143,7 +1135,7 @@ async def test_add_invitation_sends_no_is_moderator(mock_config_set) -> None:
         return {"status": "success"}
 
     with patch(
-        "app.mcp.tools.conferences.add_invitation._request",
+        "app.mcp.tools.trueconf_server.conferences.add_invitation._request",
         side_effect=_capture,
     ):
         await add_invitation("conf-1", "u2", display_name="Bob")
@@ -1157,7 +1149,7 @@ async def test_update_conference_guest_display_name_maps_403(
 ) -> None:
     """403 from PATCH → guest_display_name_only hint (registered user likely)."""
     with patch(
-        "app.mcp.tools.conferences.update_invitation._request",
+        "app.mcp.tools.trueconf_server.conferences.update_invitation._request",
         return_value={
             "error": "HTTP 403",
             "status_code": 403,
@@ -1184,7 +1176,7 @@ async def test_update_conference_guest_display_name_passthrough_success(
         return {"invitation": {"id": "inv-1", "display_name": "New Guest Name"}}
 
     with patch(
-        "app.mcp.tools.conferences.update_invitation._request",
+        "app.mcp.tools.trueconf_server.conferences.update_invitation._request",
         side_effect=_capture,
     ):
         result = await update_invitation("conf-1", "inv-1", "New Guest Name")
@@ -1214,7 +1206,7 @@ async def test_update_conference_guest_rights_without_access_public_conf(
         return {"status": "success"}
 
     with patch(
-        "app.mcp.tools.conferences.update_conference._request",
+        "app.mcp.tools.trueconf_server.conferences.update_conference._request",
         side_effect=_capture,
     ):
         result = await update_conference("conf-1", guest_rights=["video_send"])
@@ -1241,7 +1233,7 @@ async def test_update_conference_guest_rights_without_access_private_conf(
         return {"status": "success"}
 
     with patch(
-        "app.mcp.tools.conferences.update_conference._request",
+        "app.mcp.tools.trueconf_server.conferences.update_conference._request",
         side_effect=_capture,
     ):
         result = await update_conference("conf-1", guest_rights=["video_send"])
@@ -1285,12 +1277,10 @@ async def test_update_conference_partial_schedule_time_only_inherits_rest(
         return {"status": "success"}
 
     with patch(
-        "app.mcp.tools.conferences.update_conference._request",
+        "app.mcp.tools.trueconf_server.conferences.update_conference._request",
         side_effect=_capture,
     ):
-        result = await update_conference(
-            "conf-1", schedule_type="once", schedule_time="14:00"
-        )
+        result = await update_conference("conf-1", schedule_type="once", schedule_time="14:00")
 
     assert "error" not in result
     assert captured["method"] == "PATCH"
@@ -1300,9 +1290,7 @@ async def test_update_conference_partial_schedule_time_only_inherits_rest(
     assert schedule["time"] == "11:00"
     assert schedule["duration"] == 3600
     assert schedule["special_time_offset"] == 180
-    assert schedule["start_time"] == int(
-        datetime(2026, 8, 17, 11, 0, tzinfo=timezone.utc).timestamp()
-    )
+    assert schedule["start_time"] == int(datetime(2026, 8, 17, 11, 0, tzinfo=timezone.utc).timestamp())
 
 
 async def test_update_conference_partial_schedule_api_envelope_inherits_rest(
@@ -1328,12 +1316,10 @@ async def test_update_conference_partial_schedule_api_envelope_inherits_rest(
         return {"status": "success"}
 
     with patch(
-        "app.mcp.tools.conferences.update_conference._request",
+        "app.mcp.tools.trueconf_server.conferences.update_conference._request",
         side_effect=_capture,
     ):
-        result = await update_conference(
-            "conf-1", schedule_type="once", schedule_time="14:00"
-        )
+        result = await update_conference("conf-1", schedule_type="once", schedule_time="14:00")
 
     assert "error" not in result
     assert captured["method"] == "PATCH"
@@ -1365,7 +1351,7 @@ async def test_update_conference_guest_rights_api_envelope_public_ok(
         return {"status": "success"}
 
     with patch(
-        "app.mcp.tools.conferences.update_conference._request",
+        "app.mcp.tools.trueconf_server.conferences.update_conference._request",
         side_effect=_capture,
     ):
         result = await update_conference("conf-1", guest_rights=["recording"])
@@ -1394,21 +1380,17 @@ async def test_update_conference_partial_schedule_duration_only_keeps_time(
         return {"status": "success"}
 
     with patch(
-        "app.mcp.tools.conferences.update_conference._request",
+        "app.mcp.tools.trueconf_server.conferences.update_conference._request",
         side_effect=_capture,
     ):
-        result = await update_conference(
-            "conf-1", schedule_type="once", schedule_duration=7200
-        )
+        result = await update_conference("conf-1", schedule_type="once", schedule_duration=7200)
 
     assert "error" not in result
     schedule = captured["json"]["schedule"]
     assert schedule["time"] == "10:00"
     assert schedule["duration"] == 7200
     assert schedule["special_time_offset"] == 180
-    assert schedule["start_time"] == int(
-        datetime(2026, 8, 17, 10, 0, tzinfo=timezone.utc).timestamp()
-    )
+    assert schedule["start_time"] == int(datetime(2026, 8, 17, 10, 0, tzinfo=timezone.utc).timestamp())
 
 
 async def test_update_conference_partial_schedule_week_time_only_keeps_days(
@@ -1426,12 +1408,10 @@ async def test_update_conference_partial_schedule_week_time_only_keeps_days(
         return {"status": "success"}
 
     with patch(
-        "app.mcp.tools.conferences.update_conference._request",
+        "app.mcp.tools.trueconf_server.conferences.update_conference._request",
         side_effect=_capture,
     ):
-        result = await update_conference(
-            "conf-1", schedule_type="week", schedule_time="15:00"
-        )
+        result = await update_conference("conf-1", schedule_type="week", schedule_time="15:00")
 
     assert "error" not in result
     schedule = captured["json"]["schedule"]
@@ -1440,9 +1420,7 @@ async def test_update_conference_partial_schedule_week_time_only_keeps_days(
     assert schedule["time"] == "12:00"
     assert schedule["duration"] == 3600
     assert schedule["special_time_offset"] == 180
-    assert schedule["start_time"] == int(
-        datetime(2026, 8, 17, 12, 0, tzinfo=timezone.utc).timestamp()
-    )
+    assert schedule["start_time"] == int(datetime(2026, 8, 17, 12, 0, tzinfo=timezone.utc).timestamp())
 
 
 async def test_update_conference_partial_schedule_timezone_only_inherited(
@@ -1461,7 +1439,7 @@ async def test_update_conference_partial_schedule_timezone_only_inherited(
         return {"status": "success"}
 
     with patch(
-        "app.mcp.tools.conferences.update_conference._request",
+        "app.mcp.tools.trueconf_server.conferences.update_conference._request",
         side_effect=_capture,
     ):
         result = await update_conference(
@@ -1477,9 +1455,7 @@ async def test_update_conference_partial_schedule_timezone_only_inherited(
     assert schedule["special_time_offset"] == 180
     assert schedule["time"] == "10:00"
     assert schedule["duration"] == 3600
-    assert schedule["start_time"] == int(
-        datetime(2026, 8, 17, 10, 0, tzinfo=timezone.utc).timestamp()
-    )
+    assert schedule["start_time"] == int(datetime(2026, 8, 17, 10, 0, tzinfo=timezone.utc).timestamp())
 
 
 async def test_update_conference_full_schedule_no_get(mock_config_set) -> None:
@@ -1491,7 +1467,7 @@ async def test_update_conference_full_schedule_no_get(mock_config_set) -> None:
         return {"status": "success"}
 
     with patch(
-        "app.mcp.tools.conferences.update_conference._request",
+        "app.mcp.tools.trueconf_server.conferences.update_conference._request",
         side_effect=_capture,
     ):
         result = await update_conference(
@@ -1522,12 +1498,10 @@ async def test_update_conference_partial_schedule_without_existing_schedule_erro
         return {"status": "success"}
 
     with patch(
-        "app.mcp.tools.conferences.update_conference._request",
+        "app.mcp.tools.trueconf_server.conferences.update_conference._request",
         side_effect=_capture,
     ):
-        result = await update_conference(
-            "conf-1", schedule_type="once", schedule_time="14:00"
-        )
+        result = await update_conference("conf-1", schedule_type="once", schedule_time="14:00")
 
     assert result["error"] == "invalid_schedule"
     assert "PATCH" not in calls

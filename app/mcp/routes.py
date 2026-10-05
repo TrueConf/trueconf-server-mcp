@@ -15,8 +15,8 @@ OAuth login flow:
     `/error`.
 """
 
-import hashlib
 import asyncio
+import hashlib
 import logging
 import time
 import weakref
@@ -46,9 +46,7 @@ _WEB_DIR = Path(__file__).parent.parent / "web"
 # briefly and return the already-issued MCP token instead of exchanging it
 # again. Store only a hash of the OAuth code.
 _COMPLETED_CALLBACKS: dict[str, tuple[str, float]] = {}
-_CALLBACK_LOCKS: weakref.WeakValueDictionary[str, asyncio.Lock] = (
-    weakref.WeakValueDictionary()
-)
+_CALLBACK_LOCKS: weakref.WeakValueDictionary[str, asyncio.Lock] = weakref.WeakValueDictionary()
 _COMPLETED_CALLBACK_TTL_SECONDS = 60
 _HEALTH_CACHE: tuple[bool, float] | None = None
 _HEALTH_SUCCESS_TTL_SECONDS = 15
@@ -390,9 +388,7 @@ async def _exchange_login_code(request: Request, code: str) -> Response:
 
         if resp.is_error:
             logger.warning("Token exchange failed: %s", resp.status_code)
-            params = urlencode(
-                {"code": "token_exchange_failed", "detail": resp.status_code}
-            )
+            params = urlencode({"code": "token_exchange_failed", "detail": resp.status_code})
             return _cors(
                 RedirectResponse(f"{cfg.mcp_base_url}/error?{params}", status_code=302),
                 request,
@@ -417,9 +413,7 @@ async def _exchange_login_code(request: Request, code: str) -> Response:
             if not me_response.is_error:
                 me_data = me_response.json()
                 me_user = me_data.get("user", {})
-                me_display_name = (
-                    me_user.get("display_name") if isinstance(me_user, dict) else None
-                )
+                me_display_name = me_user.get("display_name") if isinstance(me_user, dict) else None
                 if isinstance(me_display_name, str) and me_display_name:
                     display_name = me_display_name
             else:

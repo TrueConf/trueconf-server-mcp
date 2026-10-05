@@ -1,7 +1,7 @@
+import datetime
 import ssl
 from ipaddress import ip_address
 
-import datetime
 import pytest
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
@@ -9,14 +9,14 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import NameOID
 
 from app.tls import (
+    ensure_self_signed_cert,
     extract_san_names,
     generate_self_signed_cert,
-    ensure_self_signed_cert,
 )
 
 
 @pytest.mark.parametrize(
-    "base_url, expected",
+    ("base_url", "expected"),
     [
         ("https://localhost", ["localhost", "127.0.0.1"]),
         ("https://localhost:443", ["localhost", "127.0.0.1"]),
@@ -84,9 +84,7 @@ def _write_cert_with_expiry(storage_dir, san_names, *, days_valid_after: int) ->
         )
     )
     cert = builder.sign(private_key=key, algorithm=hashes.SHA256())
-    (storage_dir / "cert.pem").write_bytes(
-        cert.public_bytes(serialization.Encoding.PEM)
-    )
+    (storage_dir / "cert.pem").write_bytes(cert.public_bytes(serialization.Encoding.PEM))
     (storage_dir / "key.pem").write_bytes(
         key.private_bytes(
             encoding=serialization.Encoding.PEM,
@@ -105,13 +103,11 @@ def test_ensure_self_signed_cert_regenerates_when_expired(tmp_path):
     san_names = ["localhost"]
     _write_cert_with_expiry(storage_dir, san_names, days_valid_after=-1)
 
-    cert_path, key_path = ensure_self_signed_cert(storage_dir, san_names)
+    cert_path, _key_path = ensure_self_signed_cert(storage_dir, san_names)
     # The cert was regenerated — new cert has a future expiry (365 days).
     cert = x509.load_pem_x509_certificate(cert_path.read_bytes())
     expiry = cert.not_valid_after_utc
-    assert expiry > datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(
-        days=300
-    )
+    assert expiry > datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=300)
 
 
 def test_ensure_self_signed_cert_regenerates_when_expiring_soon(tmp_path):
@@ -124,9 +120,7 @@ def test_ensure_self_signed_cert_regenerates_when_expiring_soon(tmp_path):
     cert = x509.load_pem_x509_certificate(cert_path.read_bytes())
     expiry = cert.not_valid_after_utc
     # Regenerated — new expiry is far in the future.
-    assert expiry > datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(
-        days=300
-    )
+    assert expiry > datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=300)
 
 
 def test_ensure_self_signed_cert_reuses_when_valid(tmp_path):
@@ -144,9 +138,7 @@ def test_ensure_self_signed_cert_reuses_when_valid(tmp_path):
 def test_ensure_self_signed_cert_regenerates_on_san_mismatch(tmp_path):
     """A cert with wrong SAN (but valid expiry) is regenerated."""
     storage_dir = tmp_path / "tls"
-    _write_cert_with_expiry(
-        storage_dir, ["localhost", "127.0.0.1"], days_valid_after=60
-    )
+    _write_cert_with_expiry(storage_dir, ["localhost", "127.0.0.1"], days_valid_after=60)
     original_cert_bytes = (storage_dir / "cert.pem").read_bytes()
 
     cert_path, _ = ensure_self_signed_cert(storage_dir, ["10.0.0.1"])
@@ -205,7 +197,7 @@ def test_ensure_self_signed_cert_regenerates_when_key_missing(tmp_path):
     # Remove the key file: valid cert, no key.
     (storage_dir / "key.pem").unlink()
 
-    cert_path, key_path = ensure_self_signed_cert(storage_dir, san_names)
+    _cert_path, key_path = ensure_self_signed_cert(storage_dir, san_names)
 
     # Key was regenerated.
     key = serialization.load_pem_private_key(key_path.read_bytes(), password=None)

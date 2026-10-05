@@ -22,7 +22,7 @@ def test_login_callback_url_is_auth_callback(cfg: Config):
 
 
 @pytest.mark.parametrize(
-    "page, expected_path",
+    ("page", "expected_path"),
     [
         ("", "/"),
         ("success", "/success"),
@@ -31,18 +31,19 @@ def test_login_callback_url_is_auth_callback(cfg: Config):
 )
 def test_lang_switch_targets_same_page(page, expected_path):
     """T02: lang-switch URL preserves the current page path."""
-    vars = _lang_switch_vars("ru", {"token": "abc"}, page=page)
-    assert vars["lang_url_en"] == f"{expected_path}?token=abc&lang=en"
-    assert vars["lang_url_ru"] == f"{expected_path}?token=abc&lang=ru"
+    result = _lang_switch_vars("ru", {"token": "abc"}, page=page)
+    assert result["lang_url_en"] == f"{expected_path}?token=abc&lang=en"
+    assert result["lang_url_ru"] == f"{expected_path}?token=abc&lang=ru"
 
 
 def test_lang_switch_drops_existing_lang_param():
     """Switching lang replaces the old lang param, not duplicates it."""
-    vars = _lang_switch_vars("ru", {"lang": "ru", "token": "x"}, page="success")
-    assert vars["lang_url_en"] == "/success?token=x&lang=en"
+    result = _lang_switch_vars("ru", {"lang": "ru", "token": "x"}, page="success")
+    assert result["lang_url_en"] == "/success?token=x&lang=en"
 
 
-async def test_login_page_auth_url_uses_web_route(mock_config_set, _init_i18n):
+@pytest.mark.usefixtures("_init_i18n")
+async def test_login_page_auth_url_uses_web_route(mock_config_set):
     """The OAuth authorization redirect uses the TrueConf Server web route
     /oauth2/authorize (not the API path /api/v4/oauth2/auth). The web route
     proxies to the API internally; client-side browser redirect must hit it
@@ -54,12 +55,8 @@ async def test_login_page_auth_url_uses_web_route(mock_config_set, _init_i18n):
     response = await login_page(request)
 
     body = response.body.decode()
-    assert "/oauth2/authorize" in body, (
-        "auth_url must use the /oauth2/authorize web route, not /api/v4/oauth2/auth"
-    )
-    assert "/api/v4/oauth2/auth" not in body, (
-        "auth_url must NOT include the /api/v4 prefix"
-    )
+    assert "/oauth2/authorize" in body, "auth_url must use the /oauth2/authorize web route, not /api/v4/oauth2/auth"
+    assert "/api/v4/oauth2/auth" not in body, "auth_url must NOT include the /api/v4 prefix"
     assert "client_id=test-client-id" in body
     assert "response_type=code" in body
     assert "redirect_uri=https" in body

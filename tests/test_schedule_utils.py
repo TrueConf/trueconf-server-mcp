@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from app.mcp.tools.conferences.schedule_utils import (
+from app.mcp.tools.trueconf_server.conferences.schedule_utils import (
     build_schedule,
     local_time_to_utc_time,
     offset_to_fixed_offset_string,
@@ -99,7 +99,7 @@ def test_resolve_none_uses_host_local_offset() -> None:
 
 def test_resolve_unknown_timezone_raises_value_error() -> None:
     at = datetime(2026, 6, 15, tzinfo=timezone.utc)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Unknown timezone"):
         resolve_special_time_offset("Mars/Olympus", at)
 
 
@@ -155,34 +155,34 @@ def test_parse_iso_datetime() -> None:
 
 
 def test_parse_next_monday() -> None:
-    dt, tm = parse_relative_date("next Monday", now=MON)
+    dt, _tm = parse_relative_date("next Monday", now=MON)
     assert dt == datetime(2026, 8, 17)
 
 
 def test_parse_bare_monday_is_next() -> None:
-    dt, tm = parse_relative_date("Monday", now=MON)
+    dt, _tm = parse_relative_date("Monday", now=MON)
     assert dt == datetime(2026, 8, 17)
 
 
 def test_parse_this_monday_includes_today() -> None:
-    dt, tm = parse_relative_date("this Monday", now=MON)
+    dt, _tm = parse_relative_date("this Monday", now=MON)
     assert dt == datetime(2026, 8, 10)
 
 
 def test_parse_this_wednesday_same_week() -> None:
-    dt, tm = parse_relative_date("this Wednesday", now=MON)
+    dt, _tm = parse_relative_date("this Wednesday", now=MON)
     assert dt == datetime(2026, 8, 12)
 
 
 def test_parse_next_wednesday() -> None:
     # nearest upcoming Wednesday (not the following calendar week)
-    dt, tm = parse_relative_date("next Wednesday", now=MON)
+    dt, _tm = parse_relative_date("next Wednesday", now=MON)
     assert dt == datetime(2026, 8, 12)
 
 
 def test_parse_next_today_rolls_to_next_week() -> None:
     # 'next Monday' said on a Monday → Monday next week (today excluded)
-    dt, tm = parse_relative_date("next Monday", now=MON)
+    dt, _tm = parse_relative_date("next Monday", now=MON)
     assert dt == datetime(2026, 8, 17)
 
 
@@ -190,52 +190,52 @@ def test_parse_next_friday_from_thursday() -> None:
     # regression: 'next Friday' said on Thursday resolves to tomorrow, not
     # the Friday of the following calendar week.
     thu = datetime(2026, 8, 13, 9, 0, tzinfo=timezone.utc)
-    dt, tm = parse_relative_date("next Friday", now=thu)
+    dt, _tm = parse_relative_date("next Friday", now=thu)
     assert dt == datetime(2026, 8, 14)
 
 
 def test_parse_last_monday() -> None:
-    dt, tm = parse_relative_date("last Monday", now=MON)
+    dt, _tm = parse_relative_date("last Monday", now=MON)
     assert dt == datetime(2026, 8, 3)
 
 
 def test_parse_tomorrow() -> None:
-    dt, tm = parse_relative_date("tomorrow", now=MON)
+    dt, _tm = parse_relative_date("tomorrow", now=MON)
     assert dt == datetime(2026, 8, 11)
 
 
 def test_parse_today() -> None:
-    dt, tm = parse_relative_date("today", now=MON)
+    dt, _tm = parse_relative_date("today", now=MON)
     assert dt == datetime(2026, 8, 10)
 
 
 def test_parse_day_after_tomorrow() -> None:
-    dt, tm = parse_relative_date("the day after tomorrow", now=MON)
+    dt, _tm = parse_relative_date("the day after tomorrow", now=MON)
     assert dt == datetime(2026, 8, 12)
 
 
 def test_parse_in_3_days() -> None:
-    dt, tm = parse_relative_date("in 3 days", now=MON)
+    dt, _tm = parse_relative_date("in 3 days", now=MON)
     assert dt == datetime(2026, 8, 13)
 
 
 def test_parse_in_2_weeks() -> None:
-    dt, tm = parse_relative_date("in 2 weeks", now=MON)
+    dt, _tm = parse_relative_date("in 2 weeks", now=MON)
     assert dt == datetime(2026, 8, 24)
 
 
 def test_parse_two_weeks_from_now() -> None:
-    dt, tm = parse_relative_date("two weeks from now", now=MON)
+    dt, _tm = parse_relative_date("two weeks from now", now=MON)
     assert dt == datetime(2026, 8, 24)
 
 
 def test_parse_next_week() -> None:
-    dt, tm = parse_relative_date("next week", now=MON)
+    dt, _tm = parse_relative_date("next week", now=MON)
     assert dt == datetime(2026, 8, 17)
 
 
 def test_parse_week_after_next() -> None:
-    dt, tm = parse_relative_date("the week after next", now=MON)
+    dt, _tm = parse_relative_date("the week after next", now=MON)
     assert dt == datetime(2026, 8, 24)
 
 
@@ -252,7 +252,7 @@ def test_parse_tomorrow_at_pm() -> None:
 
 
 def test_parse_case_insensitive() -> None:
-    dt, tm = parse_relative_date("NEXT MONDAY", now=MON)
+    dt, _tm = parse_relative_date("NEXT MONDAY", now=MON)
     assert dt == datetime(2026, 8, 17)
 
 
@@ -447,9 +447,7 @@ def test_build_schedule_week_with_date() -> None:
     assert schedule.days == ["monday"]
     assert schedule.special_time_offset == 180
     # 2026-08-10 07:00 UTC
-    assert schedule.start_time == int(
-        datetime(2026, 8, 10, 7, 0, tzinfo=timezone.utc).timestamp()
-    )
+    assert schedule.start_time == int(datetime(2026, 8, 10, 7, 0, tzinfo=timezone.utc).timestamp())
     assert schedule.time == "07:00"
 
 
@@ -481,9 +479,7 @@ def test_build_schedule_week_days_only_next_occurrence() -> None:
     )
     assert error is None
     assert schedule is not None
-    assert schedule.start_time == int(
-        datetime(2026, 8, 17, 7, 0, tzinfo=timezone.utc).timestamp()
-    )
+    assert schedule.start_time == int(datetime(2026, 8, 17, 7, 0, tzinfo=timezone.utc).timestamp())
     assert schedule.time == "07:00"
 
 
@@ -561,34 +557,24 @@ def test_offset_to_fixed_offset_string_roundtrip() -> None:
 
 
 def test_parse_output_time_iso_z() -> None:
-    assert parse_schedule_output_time("2026-08-17T10:00:00Z") == datetime(
-        2026, 8, 17, 10, 0, tzinfo=timezone.utc
-    )
+    assert parse_schedule_output_time("2026-08-17T10:00:00Z") == datetime(2026, 8, 17, 10, 0, tzinfo=timezone.utc)
 
 
 def test_parse_output_time_iso_with_offset() -> None:
     # 13:00 +03:00 = 10:00 UTC
-    assert parse_schedule_output_time("2026-08-17T13:00:00+03:00") == datetime(
-        2026, 8, 17, 10, 0, tzinfo=timezone.utc
-    )
+    assert parse_schedule_output_time("2026-08-17T13:00:00+03:00") == datetime(2026, 8, 17, 10, 0, tzinfo=timezone.utc)
 
 
 def test_parse_output_time_naive_assumed_utc() -> None:
-    assert parse_schedule_output_time("2026-08-17 10:00:00") == datetime(
-        2026, 8, 17, 10, 0, tzinfo=timezone.utc
-    )
+    assert parse_schedule_output_time("2026-08-17 10:00:00") == datetime(2026, 8, 17, 10, 0, tzinfo=timezone.utc)
 
 
 def test_parse_output_time_unix_string() -> None:
-    assert parse_schedule_output_time("1786960800") == datetime(
-        2026, 8, 17, 10, 0, tzinfo=timezone.utc
-    )
+    assert parse_schedule_output_time("1786960800") == datetime(2026, 8, 17, 10, 0, tzinfo=timezone.utc)
 
 
 def test_parse_output_time_unix_number() -> None:
-    assert parse_schedule_output_time(1786960800) == datetime(
-        2026, 8, 17, 10, 0, tzinfo=timezone.utc
-    )
+    assert parse_schedule_output_time(1786960800) == datetime(2026, 8, 17, 10, 0, tzinfo=timezone.utc)
 
 
 def test_parse_output_time_garbage_is_none() -> None:
@@ -920,9 +906,7 @@ def test_resolve_partial_schedule_keeps_local_date_utc_minus_boundary() -> None:
     assert error is None
     assert schedule is not None
     # 2026-08-17 02:00 local (+3) = 2026-08-16 23:00 UTC
-    assert schedule.start_time == int(
-        datetime(2026, 8, 16, 23, 0, tzinfo=timezone.utc).timestamp()
-    )
+    assert schedule.start_time == int(datetime(2026, 8, 16, 23, 0, tzinfo=timezone.utc).timestamp())
     assert schedule.time == "23:00"
     assert schedule.special_time_offset == 180
 
@@ -951,8 +935,6 @@ def test_resolve_partial_schedule_keeps_local_date_utc_plus_boundary() -> None:
     assert error is None
     assert schedule is not None
     # 2026-08-16 23:00 local (-5) = 2026-08-17 04:00 UTC
-    assert schedule.start_time == int(
-        datetime(2026, 8, 17, 4, 0, tzinfo=timezone.utc).timestamp()
-    )
+    assert schedule.start_time == int(datetime(2026, 8, 17, 4, 0, tzinfo=timezone.utc).timestamp())
     assert schedule.time == "04:00"
     assert schedule.special_time_offset == -300

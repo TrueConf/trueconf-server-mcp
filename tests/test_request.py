@@ -20,9 +20,9 @@ def _patch_access_token():
         yield at
 
 
+@pytest.mark.usefixtures("_patch_access_token")
 async def test_network_error_returns_dict(
     mock_config_set,
-    _patch_access_token,
 ) -> None:
     """A ConnectError is caught and returned as a network_error dict."""
     raising = AsyncMock(side_effect=httpx.ConnectError("connection refused"))
@@ -32,9 +32,9 @@ async def test_network_error_returns_dict(
     assert "connection refused" in result["detail"]
 
 
+@pytest.mark.usefixtures("_patch_access_token")
 async def test_timeout_returns_network_error_dict(
     mock_config_set,
-    _patch_access_token,
 ) -> None:
     """A TimeoutException is caught as a network_error."""
     raising = AsyncMock(side_effect=httpx.TimeoutException("timed out"))
@@ -43,9 +43,9 @@ async def test_timeout_returns_network_error_dict(
     assert result["error"] == "network_error"
 
 
+@pytest.mark.usefixtures("_patch_access_token")
 async def test_upstream_401_refresh_then_retry_success(
     mock_config_set,
-    _patch_access_token,
 ) -> None:
     """Upstream 401 → refresh succeeds → retry returns the real response."""
     resp_401 = httpx.Response(401, json={"error": "unauthorized"})
@@ -65,9 +65,9 @@ async def test_upstream_401_refresh_then_retry_success(
     mock_refresh.assert_awaited_once_with("tc-access-test")
 
 
+@pytest.mark.usefixtures("_patch_access_token")
 async def test_upstream_401_refresh_fails_returns_token_invalid(
     mock_config_set,
-    _patch_access_token,
 ) -> None:
     """Upstream 401 → refresh fails → token_invalid dict with login_url."""
     resp_401 = httpx.Response(401, json={"error": "unauthorized"})
@@ -85,9 +85,9 @@ async def test_upstream_401_refresh_fails_returns_token_invalid(
     assert mock_call.await_count == 1
 
 
+@pytest.mark.usefixtures("_patch_access_token")
 async def test_upstream_401_after_retry_returns_token_invalid(
     mock_config_set,
-    _patch_access_token,
 ) -> None:
     """Upstream 401 → refresh succeeds → retry also 401 → token_invalid."""
     resp_401 = httpx.Response(401, json={"error": "unauthorized"})
@@ -113,15 +113,13 @@ async def test_no_token_returns_auth_required(mock_config_set) -> None:
     assert "login_url" in result
 
 
+@pytest.mark.usefixtures("_patch_access_token")
 async def test_network_error_on_retry_returns_network_error(
     mock_config_set,
-    _patch_access_token,
 ) -> None:
     """Upstream 401 → refresh succeeds → retry hits network error → network_error."""
     resp_401 = httpx.Response(401, json={"error": "unauthorized"})
-    mock_call = AsyncMock(
-        side_effect=[resp_401, httpx.ConnectError("retry connection refused")]
-    )
+    mock_call = AsyncMock(side_effect=[resp_401, httpx.ConnectError("retry connection refused")])
     mock_refresh = AsyncMock(return_value="tc-new-token")
 
     with (
@@ -161,9 +159,9 @@ async def test_token_invalid_message_does_not_claim_revoked(
     assert "expired" in result["message"]
 
 
+@pytest.mark.usefixtures("_patch_access_token")
 async def test_try_refresh_exception_returns_token_invalid(
     mock_config_set,
-    _patch_access_token,
 ) -> None:
     """_try_refresh_trueconf_token raising → token_invalid dict (not 500)."""
     resp_401 = httpx.Response(401, json={"error": "unauthorized"})
@@ -186,9 +184,7 @@ def test_parse_response_null_json_returns_empty_dict() -> None:
     """_parse_response with upstream JSON null returns {} (not None)."""
     from app.mcp import _parse_response
 
-    resp = httpx.Response(
-        200, content=b"null", headers={"content-type": "application/json"}
-    )
+    resp = httpx.Response(200, content=b"null", headers={"content-type": "application/json"})
     result = _parse_response(resp)
     assert result == {}
 
@@ -250,9 +246,8 @@ async def test_init_http_client_uses_v4_api_base(mock_config_set) -> None:
         await app.mcp.close_http_client()
 
 
-async def test_request_version_override_builds_v4_1_url(
-    mock_config_set, _patch_access_token
-) -> None:
+@pytest.mark.usefixtures("_patch_access_token")
+async def test_request_version_override_builds_v4_1_url(mock_config_set) -> None:
     """_request with version='v4.1' targets the v4.1 API base as an absolute URL."""
     captured: dict = {}
 
@@ -263,14 +258,11 @@ async def test_request_version_override_builds_v4_1_url(
     with patch("app.mcp._call_trueconf", side_effect=_capture):
         await _request("GET", "users/user-1/addressbook", version="v4.1")
 
-    assert (
-        captured["path"] == "https://server.example/api/v4.1/users/user-1/addressbook"
-    )
+    assert captured["path"] == "https://server.example/api/v4.1/users/user-1/addressbook"
 
 
-async def test_request_v4_1_404_returns_endpoint_not_supported(
-    mock_config_set, _patch_access_token
-) -> None:
+@pytest.mark.usefixtures("_patch_access_token")
+async def test_request_v4_1_404_returns_endpoint_not_supported(mock_config_set) -> None:
     """A v4.1 request returning 404 → endpoint_not_supported (server < 5.5.6)."""
     resp_404 = httpx.Response(
         404,
@@ -292,9 +284,8 @@ async def test_request_v4_1_404_returns_endpoint_not_supported(
     assert "how_to" in result
 
 
-async def test_request_404_without_version_returns_normal_error(
-    mock_config_set, _patch_access_token
-) -> None:
+@pytest.mark.usefixtures("_patch_access_token")
+async def test_request_404_without_version_returns_normal_error(mock_config_set) -> None:
     """A plain 404 (no version override) keeps the normal error handling."""
     resp_404 = httpx.Response(
         404,
@@ -313,9 +304,8 @@ async def test_request_404_without_version_returns_normal_error(
     assert "how_to" not in result
 
 
-async def test_request_v4_1_404_after_401_retry_returns_endpoint_not_supported(
-    mock_config_set, _patch_access_token
-) -> None:
+@pytest.mark.usefixtures("_patch_access_token")
+async def test_request_v4_1_404_after_401_retry_returns_endpoint_not_supported(mock_config_set) -> None:
     """401 → refresh → retry returns 404 → still endpoint_not_supported."""
     resp_401 = httpx.Response(401, json={"error": "unauthorized"})
     resp_404 = httpx.Response(

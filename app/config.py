@@ -17,9 +17,7 @@ def _resolve_discovery_mode(explicit: str | None, code_mode_experimental: bool) 
     return "static"
 
 
-def _resolve_defaults(
-    no_tls: bool, port: int | None, base_url: str | None
-) -> tuple[int, str]:
+def _resolve_defaults(no_tls: bool, port: int | None, base_url: str | None) -> tuple[int, str]:
     """Resolve the dynamic defaults for port and mcp_base_url.
 
     - port: 80 in plain HTTP mode, 443 in HTTPS mode (if not explicitly given).
@@ -52,6 +50,7 @@ def build_config(
     auth_mode: str,
     api_token_ttl: int,
     http_timeout: float,
+    ai_server_url: str | None = None,
 ) -> "Config":
     """Build a Config from parsed values, validating and resolving defaults.
 
@@ -76,9 +75,7 @@ def build_config(
         )
 
     if bool(tls_cert) != bool(tls_key):
-        raise ValueError(
-            "Both MCP_TLS_CERT and MCP_TLS_KEY are required when either is specified."
-        )
+        raise ValueError("Both MCP_TLS_CERT and MCP_TLS_KEY are required when either is specified.")
 
     port, mcp_base_url = _resolve_defaults(no_tls, port, mcp_base_url)
 
@@ -96,6 +93,7 @@ def build_config(
         tls_cert=tls_cert,
         tls_key=tls_key,
         http_timeout=http_timeout,
+        ai_server_url=ai_server_url,
     )
 
 
@@ -114,6 +112,7 @@ class Config:
     tls_cert: str | None = None
     tls_key: str | None = None
     http_timeout: float = 30.0
+    ai_server_url: str | None = None
 
     @property
     def trueconf_base(self) -> str:
@@ -135,10 +134,7 @@ class Config:
     def from_env(cls) -> "Config":
         discovery_mode = _resolve_discovery_mode(
             explicit=os.environ.get("DISCOVERY_MODE"),
-            code_mode_experimental=os.environ.get(
-                "CODE_MODE_EXPERIMENTAL", "false"
-            ).lower()
-            == "true",
+            code_mode_experimental=os.environ.get("CODE_MODE_EXPERIMENTAL", "false").lower() == "true",
         )
         no_tls = os.environ.get("MCP_NO_TLS", "false").lower() == "true"
         port_raw = os.environ.get("TRUECONF_MCP_PORT")
@@ -157,6 +153,7 @@ class Config:
             auth_mode=os.environ.get("AUTH_MODE", "token"),
             api_token_ttl=int(os.environ.get("API_TOKEN_TTL", "86400")),
             http_timeout=float(os.environ.get("HTTP_TIMEOUT", "30")),
+            ai_server_url=os.environ.get("AI_SERVER_URL"),
         )
 
 

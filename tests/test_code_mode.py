@@ -23,7 +23,8 @@ def _custom_config() -> Config:
     return cfg
 
 
-async def test_guide_uses_config_base_url(_custom_config: Config) -> None:
+@pytest.mark.usefixtures("_custom_config")
+async def test_guide_uses_config_base_url() -> None:
     """guide() returns the Config mcp_base_url, not os.environ default."""
     from app.mcp.code_mode import _make_guide
 

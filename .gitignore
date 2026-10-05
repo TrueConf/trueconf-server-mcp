@@ -184,7 +184,8 @@ cython_debug/
 .venv*
 venv*
 /gitignore/
-.* 
+.*
+!.pre-commit-config.yaml
 docs
 graphify-out
 

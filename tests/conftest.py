@@ -17,7 +17,7 @@ import pytest
 from fastmcp.server.auth import AccessToken
 
 from app.config import Config, set_config
-from app.mcp.token_store import ApiToken, TokenStore, TCTokenIndex
+from app.mcp.token_store import ApiToken, TCTokenIndex, TokenStore
 
 
 class FakeRequest:
@@ -45,20 +45,18 @@ def tmp_storage_dir(tmp_path: Path) -> Path:
 
 def _build_file_store(storage_dir: Path) -> TokenStore:
     """Build a real (non-encrypted) FileTreeStore-backed TokenStore for tests."""
+    from key_value.aio.adapters.pydantic import PydanticAdapter
     from key_value.aio.stores.filetree import (
         FileTreeStore,
         FileTreeV1CollectionSanitizationStrategy,
         FileTreeV1KeySanitizationStrategy,
     )
-    from key_value.aio.adapters.pydantic import PydanticAdapter
 
     storage_dir.mkdir(parents=True, exist_ok=True)
     file_store = FileTreeStore(
         data_directory=storage_dir,
         key_sanitization_strategy=FileTreeV1KeySanitizationStrategy(storage_dir),
-        collection_sanitization_strategy=FileTreeV1CollectionSanitizationStrategy(
-            storage_dir
-        ),
+        collection_sanitization_strategy=FileTreeV1CollectionSanitizationStrategy(storage_dir),
     )
     # TokenStore.__init__ wraps client_storage in PydanticAdapter itself; pass
     # the raw file store directly (no encryption in tests).
@@ -70,16 +68,16 @@ def _build_file_store(storage_dir: Path) -> TokenStore:
         default_collection="mcp-api-tokens",
         raise_on_validation_error=True,
     )
-    from key_value.aio.adapters.pydantic import PydanticAdapter as _PA
+
     from app.mcp.token_store import TokenIndex
 
-    store._index_store = _PA(
+    store._index_store = PydanticAdapter(
         key_value=file_store,
         pydantic_model=TokenIndex,
         default_collection="mcp-api-tokens",
         raise_on_validation_error=True,
     )
-    store._tc_index_store = _PA(
+    store._tc_index_store = PydanticAdapter(
         key_value=file_store,
         pydantic_model=TCTokenIndex,
         default_collection="mcp-api-tokens",
@@ -120,9 +118,7 @@ def mock_token_store(tmp_storage_dir: Path) -> TokenStore:
 @pytest.fixture
 def mock_access_token() -> AccessToken:
     """A FastMCP AccessToken with test values."""
-    return AccessToken(
-        token="trueconf-access-token-test", client_id="user-1", scopes=[]
-    )
+    return AccessToken(token="trueconf-access-token-test", client_id="user-1", scopes=[])
 
 
 @pytest.fixture
@@ -143,9 +139,7 @@ def mock_httpx_response():
                 text=text,
                 headers={"content-type": content_type},
             )
-        return httpx.Response(
-            status_code, json={}, headers={"content-type": content_type}
-        )
+        return httpx.Response(status_code, json={}, headers={"content-type": content_type})
 
     return _make
 

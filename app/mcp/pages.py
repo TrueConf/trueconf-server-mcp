@@ -14,9 +14,7 @@ def _read_template(name: str) -> str:
     return (_TEMPLATES_DIR / name).read_text(encoding="utf-8")
 
 
-def _lang_switch_vars(
-    lang: str, query_params: dict[str, str], page: str = ""
-) -> dict[str, str]:
+def _lang_switch_vars(lang: str, query_params: dict[str, str], page: str = "") -> dict[str, str]:
     """Build the placeholder values for the topbar language switcher.
 
     Lang URLs preserve existing query params (token, error, name, ...) and
@@ -41,15 +39,13 @@ def _lang_switch_vars(
     }
 
 
-def _apply_vars(html: str, vars: dict[str, str]) -> str:
-    for key, value in vars.items():
+def _apply_vars(html: str, variables: dict[str, str]) -> str:
+    for key, value in variables.items():
         html = html.replace("{{ " + key + " }}", value)
     return html
 
 
-def login_page(
-    auth_url: str, lang: str, query_params: dict[str, str], server_url: str
-) -> HTMLResponse:
+def login_page(auth_url: str, lang: str, query_params: dict[str, str], server_url: str) -> HTMLResponse:
     html = _read_template("login.html")
     html = html.replace("{{ auth_url }}", auth_url)
     html = html.replace("{{ server_url }}", server_url)
@@ -85,9 +81,7 @@ def success_page(
     return create_secure_html_response(body)
 
 
-def error_page(
-    query_params: dict[str, str], lang: str, server_url: str
-) -> HTMLResponse:
+def error_page(query_params: dict[str, str], lang: str, server_url: str) -> HTMLResponse:
     html = _read_template("error.html")
     html = html.replace("{{ server_url }}", server_url)
 

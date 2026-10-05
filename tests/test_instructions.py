@@ -15,7 +15,7 @@ from app.mcp.instructions import (
 def test_static_instructions_include_do_not_invent_tool_names():
     """STATIC mode must include the 'Do not invent tool names' rule.
 
-    All 30 tools are visible in static mode, so this rule is especially
+    All 35 tools are visible in static mode, so this rule is especially
     important here — it must not be dropped by an inlined GENERAL RULES block.
     """
     assert "Do not invent tool names" in STATIC_INSTRUCTIONS

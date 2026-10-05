@@ -10,12 +10,11 @@ import pytest
 from app.mcp.i18n import _parse_accept_language, detect_lang
 from tests.conftest import FakeRequest
 
-
 # ── _parse_accept_language: malformed q values must not raise ──────────
 
 
 @pytest.mark.parametrize(
-    "header, expected",
+    ("header", "expected"),
     [
         # Malformed q values — must not raise (the original 500).
         ("en;q=1.2.3", "en"),

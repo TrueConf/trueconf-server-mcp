@@ -1,7 +1,8 @@
 import base64
 import logging
-import httpx
 from typing import Any
+
+import httpx
 from fastmcp import FastMCP
 from fastmcp.server.dependencies import get_access_token
 from fastmcp.utilities.types import File
@@ -11,8 +12,7 @@ from app.mcp.errors import make_error
 
 logger = logging.getLogger(__name__)
 
-from app.mcp.logging_utils import mask_token as mask_token  # noqa: E402, F401
-
+from app.mcp.logging_utils import mask_token as mask_token  # noqa: E402
 
 # ── Shared httpx client (created in run_server, closed on shutdown) ──────
 _http_client: httpx.AsyncClient | None = None
@@ -40,9 +40,7 @@ async def close_http_client() -> None:
 def get_http_client() -> httpx.AsyncClient:
     """Return the shared httpx client, or raise if not initialized."""
     if _http_client is None:
-        raise RuntimeError(
-            "HTTP client not initialized — call init_http_client() first"
-        )
+        raise RuntimeError("HTTP client not initialized — call init_http_client() first")
     return _http_client
 
 
@@ -85,7 +83,7 @@ def _handle_error(response) -> dict[str, Any]:
             message=str(data),
             status_code=response.status_code,
         )
-    except Exception:
+    except (ValueError, AttributeError, TypeError):
         body = response.text or ""
         return make_error(
             f"HTTP {response.status_code}",
@@ -123,9 +121,7 @@ def _token_invalid_dict() -> dict[str, Any]:
     return make_error(
         "token_invalid",
         login_url=login_url,
-        message=(
-            "Your access token has expired or was revoked. Re-authorize at login_url."
-        ),
+        message=("Your access token has expired or was revoked. Re-authorize at login_url."),
         how_to={
             "1": f"Open {login_url} in a browser",
             "2": "Authorize via TrueConf Server",
@@ -154,23 +150,17 @@ def _endpoint_not_supported_dict() -> dict[str, Any]:
                 "Tell the user that their TrueConf Server version does not "
                 "support retrieving the address book via the API"
             ),
-            "2": (
-                "Ask the administrator to upgrade the server to version 5.5.6 or higher"
-            ),
+            "2": ("Ask the administrator to upgrade the server to version 5.5.6 or higher"),
             "3": "Retry the request after the server is upgraded",
         },
         detail="HTTP 404",
     )
 
 
-async def _call_trueconf(
-    method: str, path: str, trueconf_token: str, **kwargs
-) -> httpx.Response:
+async def _call_trueconf(method: str, path: str, trueconf_token: str, **kwargs) -> httpx.Response:
     """Make a single HTTP request to the TrueConf API with the given token."""
     if _http_client is None:
-        raise RuntimeError(
-            "HTTP client not initialized — call init_http_client() first"
-        )
+        raise RuntimeError("HTTP client not initialized — call init_http_client() first")
     headers = kwargs.pop("headers", {})
     headers["Authorization"] = f"Bearer {trueconf_token}"
     logger.info("REQUEST %s %s", method, path)
@@ -199,7 +189,7 @@ async def _try_refresh_trueconf_token(trueconf_token: str) -> str | None:
     Returns the fresh TrueConf access token, or None if refresh failed /
     no token-mode auth provider is configured.
     """
-    from app.mcp.auth import ApiTokenAuth
+    from app.mcp.auth.trueconf_server import ApiTokenAuth
 
     auth = mcp.auth
     if isinstance(auth, ApiTokenAuth):
@@ -214,7 +204,7 @@ def _parse_response(response: httpx.Response) -> dict[str, Any]:
         return _handle_error(response)
     try:
         data = response.json()
-    except Exception:
+    except ValueError:
         content_type = response.headers.get("content-type", "")
         if "text/" in content_type:
             return {"content": response.text}
@@ -293,7 +283,7 @@ async def _request_file(
     method: str,
     path: str,
     *,
-    format: str,
+    file_format: str,
     name: str | None = None,
     max_size: int = 10_000_000,
     **kwargs,
@@ -361,4 +351,4 @@ async def _request_file(
             ),
         )
 
-    return File(data=response.content, format=format, name=name)
+    return File(data=response.content, format=file_format, name=name)
