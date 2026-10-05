@@ -4,7 +4,7 @@ transform(s).
 
 `mcp.instructions` is set by `apply_discovery_mode()` after the discovery
 mode is selected. Each mode has its own text because the gateway tools differ:
-- static: all 31 tools are visible to the client; no discovery step needed
+- static: all 35 tools are visible to the client; no discovery step needed
 - bm25:   tools are hidden behind `search_tools` / `call_tool`
 - code:    tools are hidden behind `guide` / `tags` / `search` / `get_schema` / `execute`
 
@@ -57,10 +57,24 @@ _COMMON_GENERAL = (
     "- Do not invent tool names.\n"
 )
 
+_COMMON_TRANSCRIPTIONS = (
+    "TRANSCRIPTIONS:\n"
+    "Transcripts recognized by the TrueConf AI Server are available via "
+    "list_transcriptions, get_transcription, get_transcription_lines, and "
+    "get_transcription_summary. Use conference_id (from list_conferences) "
+    "to find the transcript of a specific conference. If a tool returns "
+    "'ai_server_not_configured', tell the user the AI Server URL is not "
+    "configured and to ask their administrator to set AI_SERVER_URL. If a "
+    "tool returns 'ai_server_wrong_host', the request reached a TrueConf "
+    "Server instead of the AI Server — tell the user AI_SERVER_URL points "
+    "at the wrong host (it must be the AI Server and include a scheme). If "
+    "a tool returns 'ai_server_url_invalid', the URL has no http(s):// "
+    "scheme — tell the user to add one.\n\n"
+)
+
 
 STATIC_INSTRUCTIONS = (
-    _COMMON_DOMAIN
-    + "All TrueConf Server tools are available to you directly. Call them by name "
+    _COMMON_DOMAIN + "All TrueConf Server tools are available to you directly. Call them by name "
     "with the required arguments as described in each tool's schema. "
     "You do not need to search or discover tools first.\n\n"
     + _COMMON_AUTH
@@ -68,6 +82,7 @@ STATIC_INSTRUCTIONS = (
     + "- If required arguments are missing, ask the user only for the missing information.\n\n"
     + _COMMON_LANGUAGE
     + _COMMON_PARAMS_LANG
+    + _COMMON_TRANSCRIPTIONS
 )
 
 
@@ -81,7 +96,7 @@ BM25_INSTRUCTIONS = (
     "create_conference, get_conference, list_conferences, run_conference, "
     "stop_conference, add_invitation, remove_invitation, "
     "update_conference_guest_display_name, notify_conference, "
-    "start_recording, and others.\n\n"
+    "start_recording, list_transcriptions, get_transcription_lines, and others.\n\n"
     "call_tool is used to execute a real tool that was found by search_tools. "
     "You must never say that you cannot create or manage conferences just because "
     "you only see search_tools and call_tool. These two tools are the correct way "
@@ -131,21 +146,17 @@ BM25_INSTRUCTIONS = (
     "Correct behavior:\n"
     "Step 1: search_tools(query='add participant invitation conference')\n"
     "Step 2: If add_invitation is found, call it with the required arguments.\n"
-    "Step 3: If conference_id is missing, ask the user for the conference ID.\n\n"
-    + _COMMON_AUTH
-    + "ERROR HANDLING:\n"
+    "Step 3: If conference_id is missing, ask the user for the conference ID.\n\n" + _COMMON_AUTH + "ERROR HANDLING:\n"
     "If search_tools does not find a relevant tool, say that you could not find "
     "a suitable tool for this action. Do not invent tool names.\n"
     "If call_tool returns an error, explain the error briefly and ask only for the "
     "information needed to continue.\n"
     "If call_tool returns a permission error such as 403 Forbidden, explain that "
     "the action was found but the server rejected it because of insufficient permissions "
-    "or access rights.\n\n"
-    + _COMMON_GENERAL
-    + "- Do not rely on memory of previously visible tools.\n"
+    "or access rights.\n\n" + _COMMON_GENERAL + "- Do not rely on memory of previously visible tools.\n"
     "- Do not treat search_tools and call_tool as unrelated utilities.\n"
     "- search_tools and call_tool are the required gateway to the TrueConf Server API.\n"
-    "- Search first, then act.\n" + _COMMON_LANGUAGE + _COMMON_PARAMS_LANG
+    "- Search first, then act.\n" + _COMMON_TRANSCRIPTIONS + _COMMON_LANGUAGE + _COMMON_PARAMS_LANG
 )
 
 
@@ -166,6 +177,7 @@ CODE_MODE_INSTRUCTIONS = (
     + _COMMON_GENERAL
     + _COMMON_LANGUAGE
     + _COMMON_PARAMS_LANG
+    + _COMMON_TRANSCRIPTIONS
 )
 
 
@@ -173,7 +185,7 @@ def apply_discovery_mode(config: Config) -> list:
     """Select tool discovery transform and set `mcp.instructions` accordingly.
 
     Three discovery modes:
-    - static: all 31 tools are visible to the client directly (no transform)
+    - static: all 35 tools are visible to the client directly (no transform)
     - bm25:   tools are hidden behind the `search_tools` / `call_tool` gateway
     - code:   tools are hidden behind `guide` / `tags` / `search` / `get_schema` /
               `execute` (CodeMode sandbox; progressive discovery)
@@ -201,7 +213,5 @@ def apply_discovery_mode(config: Config) -> list:
         mcp.instructions = CODE_MODE_INSTRUCTIONS
         logger.info("CodeMode discovery enabled: sandbox-based progressive discovery")
     else:
-        raise SystemExit(
-            f"Unknown DISCOVERY_MODE={mode!r}. Valid values: static, bm25, code."
-        )
+        raise SystemExit(f"Unknown DISCOVERY_MODE={mode!r}. Valid values: static, bm25, code.")
     return transforms

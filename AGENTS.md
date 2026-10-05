@@ -41,11 +41,12 @@ Python 3.12, пакеты через `uv`. Тесты: `uv run pytest` (pytest +
 | `--no-tls` | `MCP_NO_TLS` | `false` | Отключить TLS — plain HTTP. Дефолт порта становится 80, самоподписанный сертификат не генерируется. |
 | `--tls-cert` | `MCP_TLS_CERT` | (none → авто-генерация) | Путь к PEM-сертификату. Требует `--tls-key`. Если не указан и TLS включён — генерируется self-signed. |
 | `--tls-key` | `MCP_TLS_KEY` | (none → авто-генерация) | Путь к PEM-ключу. Требует `--tls-cert`. |
-| `--discovery-mode` | `DISCOVERY_MODE` | `static` | `static` (все 31 инструмент: 30 conferences + 1 users), `bm25` (search gateway), `code` (CodeMode sandbox) |
+| `--discovery-mode` | `DISCOVERY_MODE` | `static` | `static` (все 35 инструментов: 30 conferences + 1 users + 4 transcriptions), `bm25` (search gateway), `code` (CodeMode sandbox) |
 | — | `CODE_MODE_EXPERIMENTAL` | `false` | **Deprecated** — legacy-альяс: `true` → `discovery-mode=code` (только если `--discovery-mode`/`DISCOVERY_MODE` не заданы явно) |
 | `--auth-mode` | `AUTH_MODE` | `token` | `token` = ручной токен через TokenStore (единственный активный режим). `oauth` = OAuthProxy + DCR (**отключён**: `_TrueConfTokenVerifier` принимал любой токен — auth bypass; код оставлен как dead code для будущего re-enable после реализации настоящей верификации). `--auth-mode oauth` rejected Typer. |
 | `--api-token-ttl` | `API_TOKEN_TTL` | `86400` | TTL нашего токена (сек) |
 | `--http-timeout` | `HTTP_TIMEOUT` | `30.0` | Timeout (сек) для HTTP-запросов к TrueConf API |
+| `--ai-server-url` | `AI_SERVER_URL` | (none) | Базовый URL TrueConf AI Server (напр. `sai01t.trueconf.name` — `https://` подставится сам; для plain-HTTP — явно `http://10.110.2.39`). Нужен для transcription-тул. Адрес НЕ берётся из TCS API (`GET /servers-ai` требует admin-права) |
 
 Для локальной разработки скопируйте `.env.example` → `.env` и отредактируйте.
 
@@ -89,18 +90,32 @@ app/
                            # единый источник конфигурации; константа TRUECONF_API_VERSION
     tls.py                 # TLS: extract_san_names, generate/ensure_self_signed_cert,
                            # resolve_tls_files(config), bind_error_help(port)
-    trueconf_api/          # слой 1: чистый домен TrueConf (без зависимостей от MCP/fastmcp)
-        __init__.py        # маркер пакета
-        models.py          # Pydantic-модели из OpenAPI schemas
-        mode_utils.py      # _resolve_mode()/_resolve_access()/build_guest_rights()
+    _client_api/           # слой 1: upstream API клиенты (без MCP-зависимостей, приватный пакет)
+        __init__.py        # маркер пакета + описание структуры
+        _trueconf_server/  # чистый домен TrueConf Server API (v4/v4.1 REST)
+            __init__.py    # маркер пакета
+            models.py      # Pydantic-модели из OpenAPI schemas
+            mode_utils.py  # _resolve_mode()/_resolve_access()/build_guest_rights()
                            # + _MODE_MAP / _ACCESS_MAP
-    mcp/                   # слой 2: MCP-инфра (зависит от trueconf_api + fastmcp)
+        _trueconf_server_ai/  # чистый домен TrueConf AI Server user API
+            __init__.py    # маркер пакета
+            models.py      # Pydantic-модели: AiTokenPair, фильтры списков
+            client.py      # HTTP-клиент AI Server: auth/from-tcs, auth/refresh,
+                           # transcriptions (+lines, summary); AiApiError
+    mcp/                   # слой 2: MCP-инфра (зависит от _client_api + fastmcp)
         __init__.py        # mcp (FastMCP), _request(), _request_file() (бинарные ответы),
                            # init_http_client()/close_http_client()/get_http_client(),
                            # _token_store + get_token_store()/set_token_store() — общие утилиты
-        auth.py            # ApiTokenAuth — наш UUID → TrueConf токен + авто-refresh,
+        auth/              # auth/access glue к апстримам (слой 2)
+            __init__.py    # фасад: re-export публичного API обоих модулей
+            trueconf_server.py   # ApiTokenAuth — наш UUID → TrueConf токен + авто-refresh,
                            # create_oauth_auth() — OAuthProxy с DCR (dead code, disabled),
                            # init_auth(config, token_store) — всегда ApiTokenAuth (OAuth path disabled)
+            trueconf_server_ai.py  # AI Server glue: адрес из конфига (--ai-server-url /
+                           # AI_SERVER_URL), без GET /servers-ai (нужны admin-права),
+                           # from-tcs exchange (domain = --server, fallback https://),
+                           # in-memory кэш JWT-пар по sha256(tc-токена), sai_request()
+                           # (refresh-on-401 → ре-exchange → ai_token_invalid)
         token_store.py     # TokenStore — зашифрованное файловое хранилище токенов,
                            # init_token_store(config) — фабрика (derive keys + FileTreeStore + Fernet),
                            # periodic_cleanup() — часовая фоновая задача (вызывает cleanup_expired)
@@ -115,54 +130,65 @@ app/
         routes.py          # HTTP UI-роуты (/, /success, /error, /&state=null, /auth/callback,
                            # /api/health, /static/app.css, /static/app.js, /favicon.ico, /logo.png)
                            # + _cors() (Origin-allowlist) + register_login_callback() — всегда
-        tools/
-            __init__.py    # агрегатор: импорт доменов (сейчас users)
-            conferences/   # 30 MCP-инструментов, один файл на инструмент
-                __init__.py # импорт всех 30 модулей → триггер @mcp.tool регистрации
-                # Core CRUD
-                list_conferences.py
-                get_conference.py
-                create_conference.py
-                update_conference.py
-                delete_conference.py
-                # Lifecycle
-                run_conference.py
-                stop_conference.py
-                join_conference.py
-                # Invitations
-                list_invitations.py
-                add_invitation.py
-                remove_invitation.py
-                get_invitation.py
-                update_invitation.py
-                invite_participants.py
-                # Participants & Roles
-                get_conference_participants.py
-                get_conference_owner.py
-                get_conference_me.py
-                # Recordings
-                list_recordings.py
-                get_recording.py
-                start_recording.py
-                stop_recording.py
-                pause_recording.py
-                # Links & Calendar
-                get_deeplinks.py
-                get_shared_links.py
-                get_conference_ics.py
-                get_conference_calendars.py
-                # Notifications & Registration
-                notify_conference.py
-                register_for_conference.py
-                # Translations
-                get_conference_translations.py
-                # Admin
-                calculate_conferences.py
-                schedule_utils.py  # хелпер без @mcp.tool: schedule/guest_rights
-            users/         # 1 MCP-инструмент
-                __init__.py # импорт модулей → триггер @mcp.tool регистрации
-                get_user_addressbook.py  # только API v4.1 (TrueConf Server ≥ 5.5.6)
-            # (масштабируется: tools/transcriptions/ и т.д.)
+         tools/
+            __init__.py    # агрегатор: импорт trueconf_server + trueconf_server_ai
+                           # → триггер @mcp.tool регистрации
+            trueconf_server/   # инструменты против TrueConf Server (v4/v4.1)
+                __init__.py    # импорт доменов → регистрация
+                conferences/   # 30 MCP-инструментов, один файл на инструмент
+                    __init__.py # импорт всех 30 модулей → триггер @mcp.tool регистрации
+                    # Core CRUD
+                    list_conferences.py
+                    get_conference.py
+                    create_conference.py
+                    update_conference.py
+                    delete_conference.py
+                    # Lifecycle
+                    run_conference.py
+                    stop_conference.py
+                    join_conference.py
+                    # Invitations
+                    list_invitations.py
+                    add_invitation.py
+                    remove_invitation.py
+                    get_invitation.py
+                    update_invitation.py
+                    invite_participants.py
+                    # Participants & Roles
+                    get_conference_participants.py
+                    get_conference_owner.py
+                    get_conference_me.py
+                    # Recordings
+                    list_recordings.py
+                    get_recording.py
+                    start_recording.py
+                    stop_recording.py
+                    pause_recording.py
+                    # Links & Calendar
+                    get_deeplinks.py
+                    get_shared_links.py
+                    get_conference_ics.py
+                    get_conference_calendars.py
+                    # Notifications & Registration
+                    notify_conference.py
+                    register_for_conference.py
+                    # Translations
+                    get_conference_translations.py
+                    # Admin
+                    calculate_conferences.py
+                    schedule_utils.py  # хелпер без @mcp.tool: schedule/guest_rights
+                users/         # 1 MCP-инструмент
+                    __init__.py # импорт модулей → триггер @mcp.tool регистрации
+                    get_user_addressbook.py  # только API v4.1 (TrueConf Server ≥ 5.5.6)
+            trueconf_server_ai/   # инструменты против TrueConf AI Server
+                __init__.py       # импорт доменов → регистрация
+                transcriptions/   # 4 MCP-инструмента против TrueConf AI Server
+                    __init__.py           # импорт модулей → триггер @mcp.tool регистрации
+                    list_transcriptions.py
+                    get_transcription.py
+                    get_transcription_lines.py
+                    get_transcription_summary.py
+            # (масштабируется: trueconf_server/summaries/ и т.д.)
     web/                   # веб-ассеты и шаблоны (раньше были в корне как static/ + templates/)
         assets/            # favicon.ico, logo.png
         static/
@@ -179,7 +205,7 @@ app/
 
 Цепочка авторизации — самая важная концепция в проекте:
 
-**Режим `oauth` (отключён):** OAuthProxy + DCR путь оставлен как dead code (`create_oauth_auth` / `_TrueConfTokenVerifier` в `auth.py`). `init_auth` всегда возвращает `ApiTokenAuth`. Причина отключения: `_TrueConfTokenVerifier.verify_token` принимал ЛЮБУЮ строку как валидный токен — полный обход авторизации. Re-enable только после реализации настоящей валидации opaque-токенов против TrueConf Server.
+**Режим `oauth` (отключён):** OAuthProxy + DCR путь оставлен как dead code (`create_oauth_auth` / `_TrueConfTokenVerifier` в `app/mcp/auth/trueconf_server.py`). `init_auth` всегда возвращает `ApiTokenAuth`. Причина отключения: `_TrueConfTokenVerifier.verify_token` принимал ЛЮБУЮ строку как валидный токен — полный обход авторизации. Re-enable только после реализации настоящей валидации opaque-токенов против TrueConf Server.
 
 **Режим `token` (единственный активный):**
 1. Пользователь заходит на `/` → OAuth2 редирект на TrueConf Server
@@ -196,7 +222,7 @@ app/
 
 **CORS для cookie-флоу.** TrueConf Server выполняет `/oauth2/authorize` через `fetch()` из JS — `/auth/callback` приходит как **credentialed cross-site CORS request**. Для таких запросов браузер требует: (1) `Access-Control-Allow-Origin` = конкретный Origin (не `*`), (2) `Access-Control-Allow-Credentials: true`. Без обоих браузер блокирует ответ и **дропает `Set-Cookie`** → `/success` не видит cookie → login loop. `_cors()` в `routes.py` ставит `Access-Control-Allow-Origin` = Origin **только если Origin входит в allowlist** (base URL TrueConf Server или `MCP_BASE_URL`), + `Allow-Credentials: true` + `Vary: Origin`; без Origin — `*`. `SameSite=None` + `Secure` на cookie необходимы, но **недостаточны** без правильных CORS headers.
 
-**Неаутентифицированные запросы (pass-through).** `RequireAuthMiddleware` пропатчен (`_patch_auth_middleware_optional` в `auth.py`) так, что запросы без Bearer-токена проходят через middleware к MCP-обработчику. Инструменты сами проверяют `get_access_token()` через `_request` и, если токена нет, возвращают `{"error": "authorization_required", "login_url": ..., "message": ..., "how_to": ...}` dict — LLM объясняет юзеру как авторизоваться. Жёсткий 401-ответ с JSON-инструкциями **никогда не срабатывает** в обоих auth-режимах (token и oauth). Pass-through патч обязателен для code_mode/bm25 — иначе `initialize` падает на 401 и discovery недоступен.
+**Неаутентифицированные запросы (pass-through).** `RequireAuthMiddleware` пропатчен (`_patch_auth_middleware_optional` в `app/mcp/auth/trueconf_server.py`) так, что запросы без Bearer-токена проходят через middleware к MCP-обработчику. Инструменты сами проверяют `get_access_token()` через `_request` и, если токена нет, возвращают `{"error": "authorization_required", "login_url": ..., "message": ..., "how_to": ...}` dict — LLM объясняет юзеру как авторизоваться. Жёсткий 401-ответ с JSON-инструкциями **никогда не срабатывает** в обоих auth-режимах (token и oauth). Pass-through патч обязателен для code_mode/bm25 — иначе `initialize` падает на 401 и discovery недоступен.
 
 ## Критично: Семантика update_conference (partial update)
 
@@ -209,12 +235,12 @@ app/
 
 ## Добавление новых инструментов
 
-1. Если нужны новые модели — добавить в `app/trueconf_api/models.py`
-2. Создать файл в соответствующем пакете (`app/mcp/tools/conferences/`, `app/mcp/tools/transcriptions/` и т.д.)
+1. Если нужны новые модели — добавить в `app/_client_api/_trueconf_server/models.py`
+2. Создать файл в соответствующем пакете (`app/mcp/tools/trueconf_server/conferences/`, `app/mcp/tools/trueconf_server_ai/transcriptions/` и т.д.)
 3. Декоратор `@mcp.tool(tags={"tag1", "tag2"})` — `mcp` импортируется из `app.mcp`
 4. API-запросы через `await _request("METHOD", "path", json=..., params=...)` (`_request` — из `app.mcp`)
 5. `_request` сам обрабатывает auth, логирование и парсинг ошибок (единые error-dict через `make_error` из `app/mcp/errors.py`). Для бинарных endpoint'ов (ICS, CSV) — `_request_file`: возвращает MCP `File` с size-лимитом (10MB) вместо base64
-6. Импорт нового модуля в `__init__.py` пакета (например `app/mcp/tools/conferences/__init__.py`) автоматически регистрирует инструменты. Не забыть `import app.mcp.tools.<domain>` в `main.py` (или в общем `app/mcp/tools/__init__.py`)
+6. Импорт нового модуля в `__init__.py` пакета (например `app/mcp/tools/trueconf_server/conferences/__init__.py`) автоматически регистрирует инструменты. Не забыть `import app.mcp.tools.trueconf_server` / `import app.mcp.tools.trueconf_server_ai` в `main.py` (или в общем `app/mcp/tools/__init__.py`)
 
 **Именование: файл vs MCP-имя инструмента.**
 - **Имя файла = API-запрос**, который инструмент оборачивает: `update_invitation.py` для
@@ -271,7 +297,7 @@ FastMCP OAuthProxy по умолчанию включает CIMD (`enable_cimd=T
 
 **Проблема:** LM Studio интерпретирует это как "сервер поддерживает только CIMD, а не стандартный DCR" → показывает "This server does not support Dynamic Client Registration".
 
-**Решение:** Отключить CIMD в `create_oauth_auth()` (`auth.py`):
+**Решение:** Отключить CIMD в `create_oauth_auth()` (`app/mcp/auth/trueconf_server.py`):
 ```python
 auth = OAuthProxy(
     ...,
@@ -335,6 +361,7 @@ NODE_TLS_REJECT_UNAUTHORIZED=0 lm-studio
 
 ## Известные проблемы
 
+- **Схема-less AI URL молча резолвилась против base_url TrueConf Server.** Если `AI_SERVER_URL`/`--ai-server-url` задан без `http(s)://` и нормализация схемы не применяется, httpx подставляет относительный URL в `base_url` общего клиента (`https://<TCS>/api/v4` + путь) → 404 `routeNotFound` в формате ошибок TCS (trace_id), а не AI Server. Защита: `resolve_sai_base()` всегда добавляет `https://` (явный `http://` сохраняется) + гвард в `ai_client._request` (URL без схемы → `ValueError`, запрос не уходит в сеть) + маппинг TCS-404 → `ai_server_wrong_host` (диагностика: «запрос ушёл в TrueConf Server, проверьте AI_SERVER_URL»), гвард-`ValueError` → `ai_server_url_invalid`
 - `download_recording` удалён — грузил весь видеофайл в base64 (memory bomb), LLM не мог осмысленно использовать видео-блоб в MCP-контексте. Скачивание записей — через `download_url` из `get_recording`/`list_recordings`
 - LM Studio не поддерживает CIMD — если в metadata есть `client_id_metadata_document_supported: true`, LM Studio показывает "DCR not supported". Решение: `enable_cimd=False` в OAuthProxy
 - `MCP_BASE_URL` с `127.0.0.1` не работает для удалённых клиентов — metadata возвращает localhost URL

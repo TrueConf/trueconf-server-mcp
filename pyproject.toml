@@ -88,3 +88,28 @@ fallback_version = "0.1.0"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+exclude = [
+    ".git",
+    ".venv",
+    "venv",
+    "env",
+    "build",
+    "dist",
+    "__pycache__"
+]
+src = [".", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "C90", "B", "BLE", "ERA", "UP007", "UP045", "RUF", "SIM", "C4", "ASYNC", "N", "A", "PT"]
+# Legitimate Cyrillic confusables: the Russian text in this repo uses
+# standalone "а" (CYRILLIC SMALL LETTER A) and "с" (CYRILLIC SMALL LETTER ES)
+# as conjunctions/prepositions — RUF001/2 would flag them as ambiguous.
+allowed-confusables = ["а", "с"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+combine-as-imports = true

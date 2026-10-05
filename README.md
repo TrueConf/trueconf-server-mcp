@@ -51,7 +51,7 @@
 
 [**Model Context Protocol (MCP)**](https://modelcontextprotocol.io) is an open standard that allows large language models (LLMs) to invoke external tools through a unified protocol. Without MCP, every LLM client would require a separate TrueConf Server API integration. With MCP, a single server exposes all tools, and any compatible MCP client can immediately use them to create conferences, manage invitations, and access recordings.
 
-**TrueConf Server MCP** is an intermediary between an LLM client and TrueConf Server. It provides 30 tools for working with conferences, recordings, invitations, participants, calendars, notifications, and translations.
+**TrueConf Server MCP** is an intermediary between an LLM client and TrueConf Server. It provides 35 tools for working with conferences, recordings, invitations, participants, calendars, notifications, translations, and AI Server transcriptions.
 
 ### Server capabilities
 
@@ -63,6 +63,7 @@
 | **Recordings** | List, view, start, stop, and pause recordings |
 | **Links and calendars** | Deep links, shared links, ICS files, and calendars |
 | **Notifications and registration** | Send notifications and register for conferences |
+| **Transcriptions** | List AI Server transcriptions, read metadata, transcript lines, and summaries (requires `--ai-server-url` / `AI_SERVER_URL`); enable transcription when creating or updating a conference |
 
 ---
 
@@ -102,7 +103,17 @@ The MCP server requires the `client_id` and `client_secret` of an OAuth applicat
    > [!IMPORTANT]
    > The redirect URI must equal `MCP_BASE_URL` followed by `/auth/callback`. If you use another host or port, update it accordingly. See [MCP_BASE_URL](#mcp_base_url).
 
-3. Enable the **scopes** required by the tools:
+3. When creating the application, in the **Grant types** subsection, select both authorization methods required by the server:
+
+   | Grant type | Purpose |
+   |---|---|
+   | `authorization_code` | Lets the user sign in through the TrueConf Server web interface |
+   | `refresh_token` | Lets the MCP server renew an expired token (access tokens live **1 hour** by default) |
+
+   > [!IMPORTANT]
+   > Without `refresh_token`, the MCP server cannot renew the token after it expires — the client gets `authorization_required` and the user has to sign in again.
+
+4. Enable the **scopes** required by the tools:
 
    | Scope | Description |
    |---|---|
@@ -115,7 +126,7 @@ The MCP server requires the `client_id` and `client_secret` of an OAuth applicat
    | `conferences.records:write` | Start, stop, and pause recordings |
    | `conferences.restrictions:read` | Calculate conference restrictions (`calculate_conferences`) |
 
-4. Copy the `client_id` and `client_secret`. You will need them in the next step.
+5. Copy the `client_id` and `client_secret`. You will need them in the next step.
 
 ### Step 3 — Start the server
 
@@ -230,6 +241,7 @@ Settings are applied in the following order, from highest to lowest priority:
 | `--auth-mode` | `AUTH_MODE` | `token` | Authentication mode: `token` (manual token) |
 | `--api-token-ttl` | `API_TOKEN_TTL` | `86400` | Token TTL in seconds |
 | `--http-timeout` | `HTTP_TIMEOUT` | `30.0` | TrueConf API request timeout in seconds |
+| `--ai-server-url` | `AI_SERVER_URL` | *(unset)* | Base URL of the TrueConf AI Server (e.g. `sai01t.trueconf.name` — `https://` is added by default; use `http://10.110.2.39` for a plain-HTTP AI Server). Required for the transcription tools (`list_transcriptions`, `get_transcription_lines`, ...). Not discovered from the TrueConf Server API — `GET /servers-ai` requires admin rights |
 
 ### Command-line help
 
@@ -417,7 +429,7 @@ The `--discovery-mode` option controls how the MCP client sees the server tools:
 
 | Mode | Description |
 |---|---|
-| `static` *(default)* | All 30 tools are exposed directly. Recommended for most use cases. |
+| `static` *(default)* | All 35 tools are exposed directly. Recommended for most use cases. |
 | `bm25` | Tools are hidden behind a search gateway. The LLM searches for an appropriate tool by its description, reducing context usage when many tools are available. |
 | `code` | CodeMode sandbox. Tools are available through a code sandbox for complex workflows. |
 
@@ -435,6 +447,7 @@ trueconf-server-mcp --discovery-mode bm25 --server ... --client-id ... --client-
 | **“self-signed certificate”** in LM Studio | Start LM Studio with `NODE_TLS_REJECT_UNAUTHORIZED=0` (see [TLS](#lm-studio-with-a-self-signed-certificate)) or configure a trusted certificate with `--tls-cert` and `--tls-key` |
 | **401 Unauthorized** in the MCP client | Make sure the token was copied correctly and has not expired. Its default TTL is 24 hours. Sign in again at `http://localhost:8080/` |
 | **403 Forbidden** for a specific tool | The TrueConf Server OAuth application is missing the required [scope](#step-2--create-an-oauth-application) |
+| **`authorization_required`** after ~1 hour of work | The OAuth application is missing the `refresh_token` grant type (the **Grant types** subsection in [Step 2](#step-2--create-an-oauth-application)). Enable it and sign in again |
 | **Permission denied** when binding to port 80 or 443 | See the [Quick start table](#step-3--start-the-server), or use `--port 8080` |
 | **Missing required configuration** at startup | Supply `--server`, `--client-id`, and `--client-secret` through CLI options, environment variables, or a `.env` file |
 

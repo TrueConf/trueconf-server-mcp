@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import time
 
 from app.mcp.token_store import TokenStore
@@ -25,7 +26,7 @@ async def test_verify_token_rejects_expired_our_token(
     mock_token_store: TokenStore,
 ) -> None:
     """verify_token returns None when our own token (expires_at) has expired."""
-    from app.mcp.auth import ApiTokenAuth
+    from app.mcp.auth.trueconf_server import ApiTokenAuth
 
     api_token = await mock_token_store.create_token(
         user_id="user-1",
@@ -137,7 +138,7 @@ async def test_concurrent_create_token_no_lost_index(
     """Concurrent create_token calls must not lose index entries (lock guard)."""
     import asyncio
 
-    N = 10
+    n = 10
     await asyncio.gather(
         *[
             mock_token_store.create_token(
@@ -147,14 +148,12 @@ async def test_concurrent_create_token_no_lost_index(
                 trueconf_refresh_token=f"tc-refresh-{i}",
                 trueconf_expires_in=3600,
             )
-            for i in range(N)
+            for i in range(n)
         ]
     )
 
     index = await mock_token_store._get_index()
-    assert len(index.tokens) == N, (
-        f"Expected {N} tokens in index, got {len(index.tokens)}: {index.tokens}"
-    )
+    assert len(index.tokens) == n, f"Expected {n} tokens in index, got {len(index.tokens)}: {index.tokens}"
 
 
 async def test_cleanup_expired_removes_stale_index_entries(
@@ -216,9 +215,7 @@ async def test_cleanup_expired_handles_many_tokens(
         assert await mock_token_store.get_by_token(f"token-{i}") is None
 
 
-async def test_periodic_cleanup_runs_once_at_startup(
-    mock_token_store: TokenStore, monkeypatch
-) -> None:
+async def test_periodic_cleanup_runs_once_at_startup(mock_token_store: TokenStore, monkeypatch) -> None:
     """periodic_cleanup runs one sweep before the first sleep (A6).
 
     Today the first cleanup only runs after `asyncio.sleep(3600)`, so frequent
@@ -226,10 +223,9 @@ async def test_periodic_cleanup_runs_once_at_startup(
     startup, then enters the hourly loop.
     """
     import asyncio
-    from app.mcp import token_store as ts_module
 
     # Wire the global token store so periodic_cleanup can find it.
-    from app.mcp import set_token_store
+    from app.mcp import set_token_store, token_store as ts_module
 
     set_token_store(mock_token_store)
 
@@ -249,14 +245,11 @@ async def test_periodic_cleanup_runs_once_at_startup(
 
     # Run periodic_cleanup; it should sweep once before sleeping, then the
     # sleep raises CancelledError which ends the loop.
-    try:
+    with contextlib.suppress(asyncio.CancelledError):
         await ts_module.periodic_cleanup()
-    except asyncio.CancelledError:
-        pass
 
     assert len(cleanup_calls) >= 1, (
-        "periodic_cleanup must call cleanup_expired at least once before the "
-        "first sleep (startup sweep)"
+        "periodic_cleanup must call cleanup_expired at least once before the first sleep (startup sweep)"
     )
 
 
@@ -328,9 +321,7 @@ async def test_cleanup_expired_handles_legacy_tokens_without_expires_at(
         "created_at": time.time() - 9999,
         "request_count": 0,
     }
-    await underlying.put(
-        key="legacy-valid", value=valid_legacy, collection="mcp-api-tokens"
-    )
+    await underlying.put(key="legacy-valid", value=valid_legacy, collection="mcp-api-tokens")
     # Legacy token with EXPIRED TrueConf credentials, no refresh — must be REMOVED.
     dead_legacy = {
         "token": "legacy-dead",
@@ -342,9 +333,7 @@ async def test_cleanup_expired_handles_legacy_tokens_without_expires_at(
         "created_at": time.time() - 9999,
         "request_count": 0,
     }
-    await underlying.put(
-        key="legacy-dead", value=dead_legacy, collection="mcp-api-tokens"
-    )
+    await underlying.put(key="legacy-dead", value=dead_legacy, collection="mcp-api-tokens")
     idx = await mock_token_store._get_index()
     idx.tokens.extend(["legacy-valid", "legacy-dead"])
     await mock_token_store._save_index(idx)

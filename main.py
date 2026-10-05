@@ -1,31 +1,57 @@
 import asyncio
+import contextlib
 import enum
 import logging
 import os
 import sys
 from typing import Annotated
 
-from dotenv import load_dotenv
 import typer
+from dotenv import load_dotenv
+from rich.console import Console
+from rich.logging import RichHandler
 
-from app.config import Config, build_config, _resolve_discovery_mode, set_config
-from app.mcp.auth import init_auth
-from app.mcp import mcp, set_token_store, init_http_client, close_http_client
-from app.mcp.token_store import init_token_store, periodic_cleanup
-import app.mcp.tools.conferences  # noqa: F401 — triggers tool registration
-import app.mcp.tools.users  # noqa: F401 — triggers tool registration
-import app.mcp.prompts  # noqa: F401 — triggers prompt registration
-import app.mcp.routes  # noqa: F401 — triggers custom route registration
-from app.mcp.routes import register_login_callback
+# Route FastMCP's own logs through our root RichHandler instead of FastMCP's
+# self-configured one. With FASTMCP_LOG_ENABLED=false fastmcp's
+# configure_logging() (also called from temporary_log_level during run) is a
+# no-op, so the "fastmcp" logger keeps default propagate=True and its records
+# flow to root. Must be set BEFORE `import fastmcp` (via app.mcp below).
+os.environ.setdefault("FASTMCP_LOG_ENABLED", "false")
+
+import app.mcp.prompts
+import app.mcp.routes
+import app.mcp.tools.trueconf_server
+import app.mcp.tools.trueconf_server_ai
+from app.banner import print_banner
+from app.config import Config, _resolve_discovery_mode, build_config, set_config
+from app.mcp import close_http_client, init_http_client, mcp, set_token_store
+from app.mcp.auth.trueconf_server import init_auth
 from app.mcp.i18n import init_i18n
 from app.mcp.instructions import apply_discovery_mode
+from app.mcp.routes import register_login_callback
+from app.mcp.token_store import init_token_store, periodic_cleanup
 from app.tls import bind_error_help, resolve_tls_files
 
 # Load .env into os.environ BEFORE Typer parses envvars. App modules no longer
 # read env at import time (they use get_config()), so order is safe.
 load_dotenv()
 
-logging.basicConfig(level=logging.INFO)
+# Root logger gets the same rich formatting FastMCP uses for its own logs
+# (RichHandler → stderr, [time] LEVEL message). fastmcp (FASTMCP_LOG_ENABLED)
+# and uvicorn (log_config=None) are routed through this one handler, so the
+# whole startup output shares one time column and format. show_path=False hides
+# the "file.py:line" column.
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(message)s",
+    handlers=[
+        RichHandler(
+            console=Console(stderr=True),
+            rich_tracebacks=True,
+            show_path=False,
+        )
+    ],
+)
 logger = logging.getLogger(__name__)
 
 init_i18n()
@@ -47,9 +73,16 @@ async def _serve(port: int, tls_files: tuple[str, str] | None) -> None:
             cert_path, key_path = tls_files
             uvicorn_config["ssl_certfile"] = cert_path
             uvicorn_config["ssl_keyfile"] = key_path
+        # Route uvicorn's own loggers through our root RichHandler too:
+        # log_config=None makes uvicorn skip its dictConfig, so uvicorn /
+        # uvicorn.error / uvicorn.access keep default propagate=True and flow
+        # to root. One handler → one time column, one format, no "INFO: ..."
+        # style lines mixed with rich output.
+        uvicorn_config["log_config"] = None
 
         try:
             await mcp.run_http_async(
+                show_banner=False,
                 transport="http",
                 host="0.0.0.0",
                 port=port,
@@ -60,14 +93,12 @@ async def _serve(port: int, tls_files: tuple[str, str] | None) -> None:
             # instead of a raw traceback.
             if "Permission denied" in str(e) or e.errno == 13:
                 typer.secho(bind_error_help(port), err=True, fg=typer.colors.RED)
-                raise SystemExit(1)
+                raise SystemExit(1) from None
             raise
     finally:
         cleanup_task.cancel()
-        try:
+        with contextlib.suppress(asyncio.CancelledError):
             await cleanup_task
-        except asyncio.CancelledError:
-            pass
         await close_http_client()
 
 
@@ -78,8 +109,9 @@ def run_server(config: Config) -> None:
     the conditional /auth/callback route (token mode only), and starts the
     HTTP server. Blocks until the server stops.
     """
+    print_banner(config)
+
     set_config(config)
-    logger.info("AUTH_MODE=%s", config.auth_mode)
 
     init_http_client()
 
@@ -141,15 +173,11 @@ def serve(
     ] = None,
     client_id: Annotated[
         str | None,
-        typer.Option(
-            "--client-id", envvar="TRUECONF_CLIENT_ID", help="OAuth client_id"
-        ),
+        typer.Option("--client-id", envvar="TRUECONF_CLIENT_ID", help="OAuth client_id"),
     ] = None,
     secret: Annotated[
         str | None,
-        typer.Option(
-            "--client-secret", envvar="TRUECONF_SECRET", help="OAuth client_secret"
-        ),
+        typer.Option("--client-secret", envvar="TRUECONF_SECRET", help="OAuth client_secret"),
     ] = None,
     verify_ssl: Annotated[
         bool,
@@ -182,8 +210,7 @@ def serve(
         typer.Option(
             "--no-tls",
             envvar="MCP_NO_TLS",
-            help="Disable TLS — serve plain HTTP instead of HTTPS. "
-            "Default port becomes 80.",
+            help="Disable TLS — serve plain HTTP instead of HTTPS. Default port becomes 80.",
         ),
     ] = False,
     tls_cert: Annotated[
@@ -235,6 +262,18 @@ def serve(
             help="Timeout (seconds) for TrueConf API HTTP requests",
         ),
     ] = 30.0,
+    ai_server_url: Annotated[
+        str | None,
+        typer.Option(
+            "--ai-server-url",
+            envvar="AI_SERVER_URL",
+            help=(
+                "Base URL of the TrueConf AI Server, e.g. "
+                "sai01t.trueconf.name (https by default) or "
+                "http://10.110.2.39 for plain HTTP"
+            ),
+        ),
+    ] = None,
 ) -> None:
     """Start the TrueConf Server MCP.
 
@@ -249,23 +288,17 @@ def serve(
     # previously CODE_MODE_EXPERIMENTAL=true overrode DISCOVERY_MODE=bm25 set
     # via env because only sys.argv was checked for explicitness).
     discovery_mode_explicit_cli = any(
-        arg == "--discovery-mode" or arg.startswith("--discovery-mode=")
-        for arg in sys.argv
+        arg == "--discovery-mode" or arg.startswith("--discovery-mode=") for arg in sys.argv
     )
     if discovery_mode_explicit_cli or os.environ.get("DISCOVERY_MODE") is not None:
         resolved_discovery_mode = discovery_mode.value
     else:
         resolved_discovery_mode = _resolve_discovery_mode(
             explicit=None,
-            code_mode_experimental=os.environ.get(
-                "CODE_MODE_EXPERIMENTAL", "false"
-            ).lower()
-            == "true",
+            code_mode_experimental=os.environ.get("CODE_MODE_EXPERIMENTAL", "false").lower() == "true",
         )
         if resolved_discovery_mode == "code":
-            logger.warning(
-                "CODE_MODE_EXPERIMENTAL is deprecated — use DISCOVERY_MODE=code instead"
-            )
+            logger.warning("CODE_MODE_EXPERIMENTAL is deprecated — use DISCOVERY_MODE=code instead")
 
     try:
         config = build_config(
@@ -282,12 +315,13 @@ def serve(
             auth_mode=auth_mode.value,
             api_token_ttl=api_token_ttl,
             http_timeout=http_timeout,
+            ai_server_url=ai_server_url,
         )
     except RuntimeError as e:
         typer.secho(str(e), err=True, fg=typer.colors.RED)
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from None
     except ValueError as e:
-        raise typer.BadParameter(str(e))
+        raise typer.BadParameter(str(e)) from e
 
     run_server(config)
 

@@ -7,7 +7,7 @@ import time
 from unittest.mock import patch
 
 from app.config import Config
-from app.mcp.auth import ApiTokenAuth
+from app.mcp.auth.trueconf_server import ApiTokenAuth
 from app.mcp.token_store import TokenStore
 
 
@@ -21,9 +21,7 @@ def _make_auth(mock_token_store: TokenStore) -> ApiTokenAuth:
     )
 
 
-async def _create_expired_tc_token(
-    store: TokenStore, *, refresh_token: str | None = "tc-refresh"
-) -> str:
+async def _create_expired_tc_token(store: TokenStore, *, refresh_token: str | None = "tc-refresh") -> str:
     """Create a token whose TrueConf access token is already expired."""
     api_token = await store.create_token(
         user_id="user-1",
@@ -57,9 +55,7 @@ async def test_concurrent_verify_token_refreshes_once(
         }
 
     with patch.object(auth, "_refresh_trueconf_token", side_effect=_fake_refresh):
-        results = await asyncio.gather(
-            auth.verify_token(token), auth.verify_token(token)
-        )
+        results = await asyncio.gather(auth.verify_token(token), auth.verify_token(token))
 
     assert refresh_calls == 1
     for r in results:
@@ -126,9 +122,7 @@ async def test_refresh_lock_cleaned_after_concurrent_success(
         }
 
     with patch.object(auth, "_refresh_trueconf_token", side_effect=_fake_refresh):
-        results = await asyncio.gather(
-            auth.verify_token(token), auth.verify_token(token)
-        )
+        results = await asyncio.gather(auth.verify_token(token), auth.verify_token(token))
 
     assert all(r is not None and r.token == "tc-new" for r in results)
     assert token not in auth._refresh_locks
@@ -199,7 +193,7 @@ def test_init_auth_always_returns_api_token_auth_for_token_mode(
     mock_config: Config,
 ) -> None:
     """init_auth with auth_mode='token' returns ApiTokenAuth (unchanged)."""
-    from app.mcp.auth import init_auth, ApiTokenAuth
+    from app.mcp.auth.trueconf_server import ApiTokenAuth, init_auth
 
     mock_config.auth_mode = "token"
     auth = init_auth(mock_config, mock_token_store)
@@ -217,10 +211,8 @@ def test_init_auth_returns_api_token_auth_even_for_oauth_mode(
     stays as dead code for future re-enable; init_auth ignores auth_mode and
     always returns ApiTokenAuth.
     """
-    from app.mcp.auth import init_auth, ApiTokenAuth
+    from app.mcp.auth.trueconf_server import ApiTokenAuth, init_auth
 
     mock_config.auth_mode = "oauth"
     auth = init_auth(mock_config, mock_token_store)
-    assert isinstance(auth, ApiTokenAuth), (
-        "init_auth must always return ApiTokenAuth — OAuth path is disabled"
-    )
+    assert isinstance(auth, ApiTokenAuth), "init_auth must always return ApiTokenAuth — OAuth path is disabled"

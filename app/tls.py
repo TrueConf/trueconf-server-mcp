@@ -51,9 +51,7 @@ def generate_self_signed_cert(san_names: list[str]) -> tuple[bytes, bytes]:
         except ValueError:
             dns_names.append(name)
 
-    subject = x509.Name(
-        [x509.NameAttribute(NameOID.COMMON_NAME, san_names[0] if san_names else "mcp")]
-    )
+    subject = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, san_names[0] if san_names else "mcp")])
     builder = (
         x509.CertificateBuilder()
         .subject_name(subject)
@@ -61,16 +59,13 @@ def generate_self_signed_cert(san_names: list[str]) -> tuple[bytes, bytes]:
         .public_key(key.public_key())
         .serial_number(x509.random_serial_number())
         .not_valid_before(datetime.datetime.now(datetime.timezone.utc))
-        .not_valid_after(
-            datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=365)
-        )
+        .not_valid_after(datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=365))
         .add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=True)
     )
     if dns_names or ip_addresses:
         builder = builder.add_extension(
             x509.SubjectAlternativeName(
-                [x509.DNSName(n) for n in dns_names]
-                + [x509.IPAddress(ip) for ip in ip_addresses]
+                [x509.DNSName(n) for n in dns_names] + [x509.IPAddress(ip) for ip in ip_addresses]
             ),
             critical=False,
         )
@@ -86,9 +81,7 @@ def generate_self_signed_cert(san_names: list[str]) -> tuple[bytes, bytes]:
     return cert_pem, key_pem
 
 
-def ensure_self_signed_cert(
-    storage_dir: Path, san_names: list[str]
-) -> tuple[Path, Path]:
+def ensure_self_signed_cert(storage_dir: Path, san_names: list[str]) -> tuple[Path, Path]:
     """Return (cert_path, key_path) for a self-signed cert, generating on first use.
 
     Idempotent: if both `cert.pem` and `key.pem` already exist in `storage_dir`
@@ -156,7 +149,7 @@ def _cert_not_valid_after(cert_path: Path):
     """Return the cert's not_valid_after (timezone-aware), or None on error."""
     try:
         cert = x509.load_pem_x509_certificate(cert_path.read_bytes())
-    except Exception:
+    except (ValueError, TypeError, OSError):
         return None
     not_valid_after = getattr(cert, "not_valid_after_utc", None)
     if not_valid_after is None:
@@ -169,16 +162,14 @@ def _is_cert_valid_for(cert_path: Path, *, days: int) -> bool:
     not_valid_after = _cert_not_valid_after(cert_path)
     if not_valid_after is None:
         return False
-    return not_valid_after > datetime.datetime.now(
-        datetime.timezone.utc
-    ) + datetime.timedelta(days=days)
+    return not_valid_after > datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=days)
 
 
 def _cert_san_matches(cert_path: Path, expected_san_names: list[str]) -> bool:
     """True if the cert's SubjectAlternativeName matches expected_san_names."""
     try:
         cert = x509.load_pem_x509_certificate(cert_path.read_bytes())
-    except Exception:
+    except (ValueError, TypeError, OSError):
         return False
     try:
         san_ext = cert.extensions.get_extension_for_class(x509.SubjectAlternativeName)
@@ -186,9 +177,7 @@ def _cert_san_matches(cert_path: Path, expected_san_names: list[str]) -> bool:
         return False
     actual_names: list[str] = []
     actual_names.extend(san_ext.value.get_values_for_type(x509.DNSName))
-    actual_names.extend(
-        str(ip) for ip in san_ext.value.get_values_for_type(x509.IPAddress)
-    )
+    actual_names.extend(str(ip) for ip in san_ext.value.get_values_for_type(x509.IPAddress))
     return sorted(actual_names) == sorted(expected_san_names)
 
 
@@ -201,7 +190,7 @@ def _is_key_loadable(key_path: Path) -> bool:
     """
     try:
         serialization.load_pem_private_key(key_path.read_bytes(), password=None)
-    except Exception:
+    except (ValueError, TypeError, OSError):
         return False
     return True
 
@@ -218,13 +207,11 @@ def _key_matches_cert(cert_path: Path, key_path: Path) -> bool:
     try:
         cert = x509.load_pem_x509_certificate(cert_path.read_bytes())
         key = serialization.load_pem_private_key(key_path.read_bytes(), password=None)
-    except Exception:
+    except (ValueError, TypeError, OSError):
         return False
     cert_pub = cert.public_key()
     key_pub = key.public_key()
-    if not (
-        isinstance(cert_pub, rsa.RSAPublicKey) and isinstance(key_pub, rsa.RSAPublicKey)
-    ):
+    if not (isinstance(cert_pub, rsa.RSAPublicKey) and isinstance(key_pub, rsa.RSAPublicKey)):
         return False
     return cert_pub.public_numbers() == key_pub.public_numbers()
 
@@ -252,10 +239,7 @@ def resolve_tls_files(config: Config) -> tuple[str, str] | None:
 
 def bind_error_help(port: int) -> str:
     """Return a human-readable hint for privileged-port bind failures."""
-    hint = (
-        f"Failed to bind port {port}. "
-        "Privileged ports (<1024) require elevated permissions."
-    )
+    hint = f"Failed to bind port {port}. Privileged ports (<1024) require elevated permissions."
 
     if platform.system() == "Linux":
         hint += (
@@ -271,7 +255,5 @@ def bind_error_help(port: int) -> str:
             "`--port 8443`."
         )
     else:
-        hint += (
-            " Run as Administrator, or use a non-privileged port like `--port 8443`."
-        )
+        hint += " Run as Administrator, or use a non-privileged port like `--port 8443`."
     return hint

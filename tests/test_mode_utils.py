@@ -1,15 +1,17 @@
 """Tests for mode_utils helpers (T11)."""
 
-from app.trueconf_api.mode_utils import (
+import pytest
+
+from app._client_api._trueconf_server.mode_utils import (
+    _describe_mode,
     _resolve_access,
     _resolve_mode,
     build_guest_rights,
 )
-import pytest
 
 
 @pytest.mark.parametrize(
-    "value, expected",
+    ("value", "expected"),
     [
         ("private", "private"),
         ("public", "public"),
@@ -25,7 +27,7 @@ def test_resolve_access(value, expected):
 
 
 @pytest.mark.parametrize(
-    "value, expected",
+    ("value", "expected"),
     [
         ("лекция", "OxP"),
         ("lecture", "OxP"),
@@ -47,7 +49,7 @@ def test_resolve_mode(value, expected):
 
 
 def test_resolve_mode_unknown_raises():
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Неизвестный режим"):
         _resolve_mode("unknown mode xxx")
 
 
@@ -61,7 +63,7 @@ def test_resolve_mode_short_fragment_does_not_match_by_substring(value):
     silently got the gallery mode. Short/fragment input must raise
     instead of guessing.
     """
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Неизвестный режим"):
         _resolve_mode(value)
 
 
@@ -69,6 +71,25 @@ def test_resolve_mode_input_containing_key_still_matches():
     """The useful direction (a full key inside a longer phrase) is kept."""
     assert _resolve_mode("my weekly lecture") == "OxP"
     assert _resolve_mode("лекция с переводом") == "OxP"
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("PxP", "all on screen"),
+        ("OxP", "video lecture"),
+        ("S|L", "moderated role-based"),
+        ("S|L Auto", "smart meeting"),
+        # Canonical values are case-insensitive.
+        ("pxp", "all on screen"),
+        ("S|L AUTO", "smart meeting"),
+        (None, None),
+        # Unknown mode is kept as-is — no data loss.
+        ("FutureMode", "FutureMode"),
+    ],
+)
+def test_describe_mode(value, expected):
+    assert _describe_mode(value) == expected
 
 
 # ── build_guest_rights ──────────────────────────────────────────────────

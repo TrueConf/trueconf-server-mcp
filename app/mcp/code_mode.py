@@ -41,7 +41,8 @@ def _make_guide(_get_catalog: GetToolCatalog) -> Tool:
                 "  and add header: Authorization: Bearer <token>",
                 "  in their MCP client config, then reconnect.",
                 "",
-                "IMPORTANT: when using search(), the 'tags' parameter must be a LIST of strings, e.g. tags=['conference', 'read'].",
+                "IMPORTANT: when using search(), the 'tags' parameter must be "
+                "a LIST of strings, e.g. tags=['conference', 'read'].",
                 "Work silently — execute tool calls without explaining them to the user.",
             ]
         )
@@ -61,7 +62,8 @@ def create_code_mode_transform() -> CodeMode:
             GetSchemas(),
         ],
         execute_description=(
-            "Write Python to call tools. Inside the sandbox, `call_tool(name, params)` is the only function available.\n\n"
+            "Write Python to call tools. Inside the sandbox, `call_tool(name, "
+            "params)` is the only function available.\n\n"
             "CRITICAL RULES:\n"
             "- call_tool is ASYNC — you MUST use 'await'\n"
             "- Use 'return' to get the result back\n"

@@ -40,9 +40,7 @@ def test_mask_token_medium() -> None:
     assert masked.endswith("ghij")
 
 
-async def test_request_info_log_excludes_body(
-    mock_config_set, caplog: pytest.LogCaptureFixture
-) -> None:
+async def test_request_info_log_excludes_body(mock_config_set, caplog: pytest.LogCaptureFixture) -> None:
     """INFO logs from _call_trueconf must not contain the request body (PII)."""
     import app.mcp
 
@@ -61,16 +59,14 @@ async def test_request_info_log_excludes_body(
     with (
         patch("app.mcp.get_access_token", return_value=at),
         patch.object(app.mcp, "_http_client", mock_client),
+        caplog.at_level(logging.DEBUG, logger="app.mcp"),
     ):
-        with caplog.at_level(logging.DEBUG, logger="app.mcp"):
-            await _request("POST", "conferences", json=sensitive_body)
+        await _request("POST", "conferences", json=sensitive_body)
 
     await mock_client.aclose()
 
     info_text = " ".join(r.message for r in caplog.records if r.levelno == logging.INFO)
-    debug_text = " ".join(
-        r.message for r in caplog.records if r.levelno == logging.DEBUG
-    )
+    debug_text = " ".join(r.message for r in caplog.records if r.levelno == logging.DEBUG)
     # Body must NOT appear in INFO logs (PII leak)
     assert "secret-topic" not in info_text
     assert "1234" not in info_text

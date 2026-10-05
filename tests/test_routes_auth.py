@@ -34,20 +34,20 @@ def test_map_exception_to_code_generic():
     assert _map_exception_to_code(RuntimeError("boom")) == "create_token_failed"
 
 
-def test_error_page_renders_code_message(_init_i18n):
+@pytest.mark.usefixtures("_init_i18n")
+def test_error_page_renders_code_message():
     """error_page maps the code to a human-readable i18n message."""
     from app.mcp.pages import error_page
 
-    html_response = error_page(
-        {"code": "token_exchange_failed"}, "en", "https://server.example"
-    )
+    html_response = error_page({"code": "token_exchange_failed"}, "en", "https://server.example")
     body = html_response.body.decode()
     assert "exchange" in body.lower() or "token" in body.lower()
     # Raw exception text must not appear.
     assert "KeyError" not in body
 
 
-def test_error_page_falls_back_when_no_code(_init_i18n):
+@pytest.mark.usefixtures("_init_i18n")
+def test_error_page_falls_back_when_no_code():
     """error_page without a code falls back to the generic message."""
     from app.mcp.pages import error_page
 
@@ -56,7 +56,8 @@ def test_error_page_falls_back_when_no_code(_init_i18n):
     assert "Something went wrong" in body
 
 
-def test_success_page_escapes_profile_fields(_init_i18n):
+@pytest.mark.usefixtures("_init_i18n")
+def test_success_page_escapes_profile_fields():
     """name/user_id from the TrueConf profile must be HTML-escaped (self-XSS).
 
     /success carries a fresh MCP token in the same DOM; a profile field
@@ -81,9 +82,7 @@ def test_success_page_escapes_profile_fields(_init_i18n):
     assert "&quot;&gt;&lt;img" in body
 
 
-async def test_handle_login_callback_sets_cookie(
-    mock_config_set, mock_token_store
-) -> None:
+async def test_handle_login_callback_sets_cookie(mock_config_set, mock_token_store) -> None:
     """On success, /auth/callback sets the cookie without a fetch redirect."""
     from app.mcp import set_token_store
 
@@ -102,9 +101,7 @@ async def test_handle_login_callback_sets_cookie(
 
     mock_http_client = AsyncMock()
     mock_http_client.post = AsyncMock(return_value=token_resp)
-    mock_http_client.get = AsyncMock(
-        return_value=httpx.Response(200, json={"user": {"display_name": "Alice Smith"}})
-    )
+    mock_http_client.get = AsyncMock(return_value=httpx.Response(200, json={"user": {"display_name": "Alice Smith"}}))
 
     request = FakeRequest(query_params={"code": "test-code"})
 
@@ -119,10 +116,7 @@ async def test_handle_login_callback_sets_cookie(
     # and SameSite=Lax would be dropped by the browser.
     set_cookie = response.headers.get("set-cookie", "")
     assert "mcp_token=" in set_cookie
-    assert any(
-        "mcp_login_pending=" in value
-        for value in response.headers.getlist("set-cookie")
-    )
+    assert any("mcp_login_pending=" in value for value in response.headers.getlist("set-cookie"))
     assert "HttpOnly" in set_cookie
     assert "Secure" in set_cookie
     assert "SameSite=none" in set_cookie
@@ -140,9 +134,7 @@ async def test_handle_login_callback_sets_cookie(
     assert body["client_id"] == "test-client-id"
     assert body["client_secret"] == "test-secret"
     assert body["redirect_uri"].endswith("/auth/callback")
-    mock_http_client.get.assert_awaited_once_with(
-        "/me", headers={"Authorization": "Bearer tc-access"}, timeout=2.0
-    )
+    mock_http_client.get.assert_awaited_once_with("/me", headers={"Authorization": "Bearer tc-access"}, timeout=2.0)
 
     cookie_value = response.headers["set-cookie"].split(";", 1)[0].split("=", 1)[1]
     record = await mock_token_store.get_by_token(cookie_value)
@@ -150,9 +142,7 @@ async def test_handle_login_callback_sets_cookie(
     assert record.display_name == "Alice Smith"
 
 
-async def test_handle_login_callback_uses_cached_token_for_duplicate_code(
-    mock_config_set, mock_token_store
-) -> None:
+async def test_handle_login_callback_uses_cached_token_for_duplicate_code(mock_config_set, mock_token_store) -> None:
     """A repeated callback never exchanges a single-use OAuth code twice."""
     from app.mcp import set_token_store
 
@@ -165,9 +155,7 @@ async def test_handle_login_callback_uses_cached_token_for_duplicate_code(
     mock_http_client.post = AsyncMock(return_value=token_resp)
 
     with patch("app.mcp.get_http_client", return_value=mock_http_client):
-        first_response = await _handle_login_callback(
-            FakeRequest(query_params={"code": "duplicate-code"})
-        )
+        first_response = await _handle_login_callback(FakeRequest(query_params={"code": "duplicate-code"}))
         second_response = await _handle_login_callback(
             FakeRequest(query_params={"code": "duplicate-code", "state": "null"})
         )
@@ -179,16 +167,12 @@ async def test_handle_login_callback_uses_cached_token_for_duplicate_code(
     mock_http_client.post.assert_awaited_once()
 
 
-async def test_concurrent_login_callbacks_exchange_code_once(
-    mock_config_set, mock_token_store
-) -> None:
+async def test_concurrent_login_callbacks_exchange_code_once(mock_config_set, mock_token_store) -> None:
     """Concurrent delivery of one single-use code shares one exchange."""
     from app.mcp import set_token_store
 
     set_token_store(mock_token_store)
-    token_resp = httpx.Response(
-        200, json={"access_token": "tc-access", "user_id": "user-1"}
-    )
+    token_resp = httpx.Response(200, json={"access_token": "tc-access", "user_id": "user-1"})
 
     async def delayed_post(*args, **kwargs):
         await asyncio.sleep(0.02)
@@ -207,26 +191,19 @@ async def test_concurrent_login_callbacks_exchange_code_once(
     mock_http_client.post.assert_awaited_once()
 
 
-async def test_completed_callback_cache_is_reusable(
-    mock_config_set, mock_token_store
-) -> None:
+async def test_completed_callback_cache_is_reusable(mock_config_set, mock_token_store) -> None:
     """Second and later duplicate callbacks reuse the same completed result."""
     from app.mcp import set_token_store
 
     set_token_store(mock_token_store)
     mock_http_client = AsyncMock()
     mock_http_client.post = AsyncMock(
-        return_value=httpx.Response(
-            200, json={"access_token": "tc-access", "user_id": "user-1"}
-        )
+        return_value=httpx.Response(200, json={"access_token": "tc-access", "user_id": "user-1"})
     )
 
     with patch("app.mcp.get_http_client", return_value=mock_http_client):
         responses = [
-            await _handle_login_callback(
-                FakeRequest(query_params={"code": "repeated-code"})
-            )
-            for _ in range(3)
+            await _handle_login_callback(FakeRequest(query_params={"code": "repeated-code"})) for _ in range(3)
         ]
 
     assert [response.status_code for response in responses] == [200, 302, 302]
@@ -243,7 +220,8 @@ async def test_handle_login_callback_without_code_redirects_to_login(
     assert response.status_code == 302
     location = response.headers.get("location", "")
     # Redirects to the login page (base URL root), not a blank 200.
-    assert location.endswith("/") and "token=" not in location
+    assert location.endswith("/")
+    assert "token=" not in location
 
 
 async def test_handle_login_callback_exception_uses_code(mock_config_set) -> None:
@@ -269,9 +247,7 @@ async def test_success_page_without_cookie_redirects(mock_config_set) -> None:
     assert "localhost" in response.headers.get("location", "")
 
 
-async def test_success_page_with_cookie_renders_and_keeps_cookie(
-    mock_config_set, mock_token_store
-) -> None:
+async def test_success_page_with_cookie_renders_and_keeps_cookie(mock_config_set, mock_token_store) -> None:
     """/success keeps its short-lived cookie for language re-rendering."""
     from app.mcp import set_token_store
     from app.mcp.routes import success_page
@@ -298,9 +274,8 @@ async def test_success_page_with_cookie_renders_and_keeps_cookie(
     assert "mcp_token" not in set_cookie
 
 
-async def test_success_page_language_switch_keeps_token_cookie(
-    mock_config_set, mock_token_store, _init_i18n
-) -> None:
+@pytest.mark.usefixtures("_init_i18n")
+async def test_success_page_language_switch_keeps_token_cookie(mock_config_set, mock_token_store) -> None:
     """Changing language on /success does not send the visitor back to login."""
     from app.mcp import set_token_store
     from app.mcp.routes import success_page
@@ -314,9 +289,7 @@ async def test_success_page_language_switch_keeps_token_cookie(
     )
     set_token_store(mock_token_store)
 
-    response = await success_page(
-        FakeRequest(cookies={"mcp_token": api_token.token}, query_params={"lang": "en"})
-    )
+    response = await success_page(FakeRequest(cookies={"mcp_token": api_token.token}, query_params={"lang": "en"}))
 
     assert response.status_code == 200
     assert "tc_lang=en" in response.headers.get("set-cookie", "")
@@ -330,9 +303,7 @@ async def test_success_page_language_switch_keeps_token_cookie(
 # otherwise it blocks the response and drops Set-Cookie → login loop.
 
 
-async def test_handle_login_callback_echoes_origin_with_credentials(
-    mock_config_set, mock_token_store
-) -> None:
+async def test_handle_login_callback_echoes_origin_with_credentials(mock_config_set, mock_token_store) -> None:
     """With a cross-origin Origin, /auth/callback echoes the Origin and sets
     Access-Control-Allow-Credentials: true — required for the browser to
     accept Set-Cookie on a credentialed fetch() response."""
@@ -369,9 +340,7 @@ async def test_handle_login_callback_echoes_origin_with_credentials(
     assert "mcp_token=" in response.headers.get("set-cookie", "")
 
 
-async def test_handle_login_callback_no_origin_returns_wildcard(
-    mock_config_set, mock_token_store
-) -> None:
+async def test_handle_login_callback_no_origin_returns_wildcard(mock_config_set, mock_token_store) -> None:
     """Without an Origin header (same-origin or direct request), _cors()
     returns Access-Control-Allow-Origin: * and omits Allow-Credentials."""
     from app.mcp import set_token_store
@@ -458,9 +427,8 @@ async def test_success_page_options_preflight_cors(mock_config_set) -> None:
     assert response.headers["vary"] == "Origin"
 
 
-async def test_success_page_with_cookie_echoes_origin(
-    mock_config_set, mock_token_store, _init_i18n
-) -> None:
+@pytest.mark.usefixtures("_init_i18n")
+async def test_success_page_with_cookie_echoes_origin(mock_config_set, mock_token_store) -> None:
     """GET /success with cookie + Origin renders 200 with CORS echo."""
     from app.mcp import set_token_store
     from app.mcp.routes import success_page
@@ -487,7 +455,8 @@ async def test_success_page_with_cookie_echoes_origin(
     assert response.headers["vary"] == "Origin"
 
 
-async def test_login_page_echoes_origin(mock_config_set, _init_i18n) -> None:
+@pytest.mark.usefixtures("_init_i18n")
+async def test_login_page_echoes_origin(mock_config_set) -> None:
     """GET / with Origin returns 200 with CORS echo + Allow-Credentials."""
     from app.mcp.routes import login_page
 
@@ -500,7 +469,8 @@ async def test_login_page_echoes_origin(mock_config_set, _init_i18n) -> None:
     assert response.headers["vary"] == "Origin"
 
 
-async def test_error_page_echoes_origin(mock_config_set, _init_i18n) -> None:
+@pytest.mark.usefixtures("_init_i18n")
+async def test_error_page_echoes_origin(mock_config_set) -> None:
     """GET /error with Origin returns 400 (error page) with CORS echo."""
     from app.mcp.routes import error_page
 
@@ -536,23 +506,19 @@ async def test_login_page_with_pending_marker_redirects_to_success(
     assert "Max-Age=0" in set_cookie
 
 
-async def test_login_page_with_only_token_cookie_shows_login(
-    mock_config_set, _init_i18n
-) -> None:
+@pytest.mark.usefixtures("_init_i18n")
+async def test_login_page_with_only_token_cookie_shows_login(mock_config_set) -> None:
     """After /success consumes the marker, visiting / shows login."""
     from app.mcp.routes import login_page
 
-    response = await login_page(
-        FakeRequest(cookies={"mcp_token": "some-token"}, query_params={})
-    )
+    response = await login_page(FakeRequest(cookies={"mcp_token": "some-token"}, query_params={}))
 
     assert response.status_code == 200
     assert "oauth2/authorize" in response.body.decode()
 
 
-async def test_login_page_without_cookie_shows_login_form(
-    mock_config_set, _init_i18n
-) -> None:
+@pytest.mark.usefixtures("_init_i18n")
+async def test_login_page_without_cookie_shows_login_form(mock_config_set) -> None:
     """GET / without mcp_token cookie renders the login form (not a redirect)."""
     from app.mcp.routes import login_page
 

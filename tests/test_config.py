@@ -4,16 +4,16 @@ from unittest.mock import patch
 import pytest
 
 from app.config import (
-    Config,
     TRUECONF_API_VERSION,
+    Config,
     _resolve_defaults,
-    build_config,
     _resolve_discovery_mode,
+    build_config,
 )
 
 
 @pytest.mark.parametrize(
-    "no_tls, port, base_url, expected_port, expected_base_url",
+    ("no_tls", "port", "base_url", "expected_port", "expected_base_url"),
     [
         # HTTPS default: 443, https://localhost (port omitted)
         (False, None, None, 443, "https://localhost"),
@@ -74,23 +74,20 @@ def test_from_env_auth_mode_is_lowercased():
 
 def test_from_env_tls_cert_without_key_raises():
     """Config.from_env validates tls_cert/tls_key pair."""
-    with _set_env(MCP_TLS_CERT="/path/cert.pem"):
-        with pytest.raises(ValueError, match="MCP_TLS_CERT.*MCP_TLS_KEY"):
-            Config.from_env()
+    with _set_env(MCP_TLS_CERT="/path/cert.pem"), pytest.raises(ValueError, match=r"MCP_TLS_CERT.*MCP_TLS_KEY"):
+        Config.from_env()
 
 
 def test_from_env_tls_key_without_cert_raises():
     """Config.from_env validates tls_cert/tls_key pair (reverse)."""
-    with _set_env(MCP_TLS_KEY="/path/key.pem"):
-        with pytest.raises(ValueError, match="MCP_TLS_CERT.*MCP_TLS_KEY"):
-            Config.from_env()
+    with _set_env(MCP_TLS_KEY="/path/key.pem"), pytest.raises(ValueError, match=r"MCP_TLS_CERT.*MCP_TLS_KEY"):
+        Config.from_env()
 
 
 def test_from_env_missing_server_raises_friendly_error():
     """Missing TRUECONF_SERVER raises a clear error, not raw KeyError."""
-    with patch.dict(os.environ, {}, clear=True):
-        with pytest.raises((ValueError, RuntimeError)):
-            Config.from_env()
+    with patch.dict(os.environ, {}, clear=True), pytest.raises((ValueError, RuntimeError)):
+        Config.from_env()
 
 
 def test_from_env_http_timeout_from_env():
@@ -112,21 +109,21 @@ def test_from_env_http_timeout_default():
 
 def _build_kwargs(**overrides):
     """Minimal valid kwargs for build_config; override as needed per test."""
-    base = dict(
-        server="server.example",
-        client_id="cid",
-        secret="secret",
-        verify_ssl=True,
-        mcp_base_url=None,
-        port=None,
-        no_tls=False,
-        tls_cert=None,
-        tls_key=None,
-        discovery_mode="static",
-        auth_mode="token",
-        api_token_ttl=86400,
-        http_timeout=30.0,
-    )
+    base = {
+        "server": "server.example",
+        "client_id": "cid",
+        "secret": "secret",
+        "verify_ssl": True,
+        "mcp_base_url": None,
+        "port": None,
+        "no_tls": False,
+        "tls_cert": None,
+        "tls_key": None,
+        "discovery_mode": "static",
+        "auth_mode": "token",
+        "api_token_ttl": 86400,
+        "http_timeout": 30.0,
+    }
     base.update(overrides)
     return base
 
@@ -155,12 +152,12 @@ def test_build_config_missing_secret_raises():
 
 
 def test_build_config_tls_cert_without_key_raises():
-    with pytest.raises(ValueError, match="MCP_TLS_CERT.*MCP_TLS_KEY"):
+    with pytest.raises(ValueError, match=r"MCP_TLS_CERT.*MCP_TLS_KEY"):
         build_config(**_build_kwargs(tls_cert="/path/cert.pem"))
 
 
 def test_build_config_tls_key_without_cert_raises():
-    with pytest.raises(ValueError, match="MCP_TLS_CERT.*MCP_TLS_KEY"):
+    with pytest.raises(ValueError, match=r"MCP_TLS_CERT.*MCP_TLS_KEY"):
         build_config(**_build_kwargs(tls_key="/path/key.pem"))
 
 
@@ -185,9 +182,7 @@ def test_config_trueconf_api_base():
 
 def test_resolve_discovery_mode_explicit_wins_over_code_mode_experimental():
     """Explicit DISCOVERY_MODE must not be overridden by CODE_MODE_EXPERIMENTAL."""
-    assert (
-        _resolve_discovery_mode(explicit="bm25", code_mode_experimental=True) == "bm25"
-    )
+    assert _resolve_discovery_mode(explicit="bm25", code_mode_experimental=True) == "bm25"
 
 
 def test_resolve_discovery_mode_code_mode_experimental_when_no_explicit():
@@ -195,12 +190,8 @@ def test_resolve_discovery_mode_code_mode_experimental_when_no_explicit():
 
 
 def test_resolve_discovery_mode_default_static():
-    assert (
-        _resolve_discovery_mode(explicit=None, code_mode_experimental=False) == "static"
-    )
+    assert _resolve_discovery_mode(explicit=None, code_mode_experimental=False) == "static"
 
 
 def test_resolve_discovery_mode_lowercases_explicit():
-    assert (
-        _resolve_discovery_mode(explicit="BM25", code_mode_experimental=False) == "bm25"
-    )
+    assert _resolve_discovery_mode(explicit="BM25", code_mode_experimental=False) == "bm25"
